@@ -25,6 +25,8 @@ Single Node.js process with skill-based channel system. Channels (WhatsApp, Tele
 
 API keys, secret keys, OAuth tokens, and auth credentials are managed by the OneCLI gateway — which handles secret injection into containers at request time, so no keys or tokens are ever passed to containers directly. Run `onecli --help`.
 
+**Exception:** Google Calendar OAuth tokens (`~/.config/google-calendar-mcp/`) are mounted directly into containers (read-write for token refresh). The MCP server (`@cocal/google-calendar-mcp`) requires file-based credentials that can't go through the OneCLI proxy.
+
 ## Skills
 
 Four types of skills exist in NanoClaw. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full taxonomy and guidelines.

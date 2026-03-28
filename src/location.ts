@@ -5,10 +5,7 @@ import path from 'path';
 import { GROUPS_DIR } from './config.js';
 import { logger } from './logger.js';
 
-export const LOCATION_PORT = parseInt(
-  process.env.LOCATION_PORT || '7100',
-  10,
-);
+export const LOCATION_PORT = parseInt(process.env.LOCATION_PORT || '7100', 10);
 
 const LOCATIONS_DIR = path.join(GROUPS_DIR, 'global', 'locations');
 
@@ -58,7 +55,9 @@ function readLocation(user: string): string | null {
 
 function readAllLocations(): Record<string, LocationUpdate> {
   try {
-    const files = fs.readdirSync(LOCATIONS_DIR).filter((f) => f.endsWith('.json'));
+    const files = fs
+      .readdirSync(LOCATIONS_DIR)
+      .filter((f) => f.endsWith('.json'));
     const result: Record<string, LocationUpdate> = {};
     for (const file of files) {
       const user = path.basename(file, '.json');
@@ -126,7 +125,10 @@ export function startLocationServer(): http.Server {
     }
 
     // GET /location — read all users' locations
-    if (req.method === 'GET' && (url === '/' || url === '/location' || url === '/location/')) {
+    if (
+      req.method === 'GET' &&
+      (url === '/' || url === '/location' || url === '/location/')
+    ) {
       const all = readAllLocations();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(all, null, 2) + '\n');
@@ -139,7 +141,9 @@ export function startLocationServer(): http.Server {
 
   server.listen(LOCATION_PORT, () => {
     logger.info({ port: LOCATION_PORT }, 'Location server listening');
-    console.log(`  Location endpoint: http://0.0.0.0:${LOCATION_PORT}/location/:user`);
+    console.log(
+      `  Location endpoint: http://0.0.0.0:${LOCATION_PORT}/location/:user`,
+    );
   });
 
   return server;

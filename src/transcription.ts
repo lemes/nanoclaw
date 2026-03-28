@@ -31,30 +31,23 @@ export async function transcribeAudio(
     fs.writeFileSync(inputPath, audioBuffer);
 
     // Convert to 16kHz mono WAV (required by whisper.cpp)
-    execFileSync('ffmpeg', [
-      '-i', inputPath,
-      '-ar', '16000',
-      '-ac', '1',
-      '-f', 'wav',
-      '-y',
-      wavPath,
-    ], { timeout: 30000, stdio: 'pipe' });
+    execFileSync(
+      'ffmpeg',
+      ['-i', inputPath, '-ar', '16000', '-ac', '1', '-f', 'wav', '-y', wavPath],
+      { timeout: 30000, stdio: 'pipe' },
+    );
 
     // Run whisper-cli
-    const output = execFileSync(WHISPER_BIN, [
-      '-m', WHISPER_MODEL,
-      '-f', wavPath,
-      '--no-timestamps',
-      '-nt',
-    ], { timeout: 60000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+    const output = execFileSync(
+      WHISPER_BIN,
+      ['-m', WHISPER_MODEL, '-f', wavPath, '--no-timestamps', '-nt'],
+      { timeout: 60000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] },
+    );
 
     const transcript = output.trim();
     if (!transcript) return null;
 
-    logger.info(
-      { chars: transcript.length },
-      'Transcribed voice message',
-    );
+    logger.info({ chars: transcript.length }, 'Transcribed voice message');
     return transcript;
   } catch (err) {
     logger.error({ err }, 'whisper.cpp transcription failed');
