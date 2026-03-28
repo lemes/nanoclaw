@@ -60,24 +60,44 @@ Read these files when location context is relevant — e.g. weather, nearby plac
 
 ## Google Calendar
 
-You have Google Calendar tools available via `mcp__calendar__*`. Vin's Google account (`vinicius.lemes.silva@gmail.com`) is connected. Additional accounts can be added via `manage_accounts`.
+Google Calendar is accessed via Nango's HTTP proxy. No MCP tools — use `curl` in Bash.
 
-| Tool | What it does |
-|------|-------------|
-| `list_calendars` | List all available calendars across connected accounts |
-| `list_events` | List events in a time range (timeMin, timeMax in ISO format) |
-| `get_event` | Get event details by event ID |
-| `search_events` | Search events by text query |
-| `create_event` | Create an event (summary, start/end datetime, description, location) |
-| `update_event` | Update an existing event |
-| `delete_event` | Delete an event by ID |
-| `respond_to_event` | Accept, decline, or tentatively accept an event |
-| `get_freebusy` | Check free/busy status for time ranges |
-| `get_current_time` | Get the current time in any timezone |
-| `list_colors` | List available calendar colors |
-| `manage_accounts` | Connect or disconnect Google accounts |
+**Base URL:** `http://host.docker.internal:3003/proxy/calendar/v3`
+**Required headers:**
+```
+Authorization: Bearer 8d4bd912-2d7f-49f4-9ed6-343d6c8b80b5
+Provider-Config-Key: google-calendar
+Connection-Id: <user-connection-id>
+```
 
-Multi-account: read tools merge results from all connected accounts by default. Use the `account` parameter to target a specific account. All dates use ISO 8601 format.
+**Connected users:**
+- Vin (`vinicius.lemes.silva@gmail.com`): Connection-Id `c91c69f3-9f8c-4c6e-9ebf-15619475e59d`
+
+**Common API calls:**
+```bash
+# List calendars
+curl -s http://host.docker.internal:3003/proxy/calendar/v3/users/me/calendarList \
+  -H "Authorization: Bearer 8d4bd912-2d7f-49f4-9ed6-343d6c8b80b5" \
+  -H "Provider-Config-Key: google-calendar" \
+  -H "Connection-Id: c91c69f3-9f8c-4c6e-9ebf-15619475e59d"
+
+# List events (use timeMin/timeMax as query params, ISO 8601)
+curl -s "http://host.docker.internal:3003/proxy/calendar/v3/calendars/primary/events?timeMin=2026-03-28T00:00:00Z&timeMax=2026-03-29T00:00:00Z" \
+  -H "Authorization: Bearer 8d4bd912-2d7f-49f4-9ed6-343d6c8b80b5" \
+  -H "Provider-Config-Key: google-calendar" \
+  -H "Connection-Id: c91c69f3-9f8c-4c6e-9ebf-15619475e59d"
+
+# Create event
+curl -s -X POST http://host.docker.internal:3003/proxy/calendar/v3/calendars/primary/events \
+  -H "Authorization: Bearer 8d4bd912-2d7f-49f4-9ed6-343d6c8b80b5" \
+  -H "Provider-Config-Key: google-calendar" \
+  -H "Connection-Id: c91c69f3-9f8c-4c6e-9ebf-15619475e59d" \
+  -H "Content-Type: application/json" \
+  -d '{"summary":"Event title","start":{"dateTime":"2026-03-28T10:00:00+01:00"},"end":{"dateTime":"2026-03-28T11:00:00+01:00"}}'
+```
+
+Full API reference: https://developers.google.com/calendar/api/v3/reference
+Nango handles OAuth token refresh automatically. To add a new user, request a connect session from the host.
 
 ## Your Workspace
 

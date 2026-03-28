@@ -211,20 +211,6 @@ function buildVolumeMounts(
     readonly: false,
   });
 
-  // Google Calendar MCP credentials (read-write for token refresh)
-  const calendarMcpDir = path.join(
-    process.env.HOME || '/root',
-    '.config',
-    'google-calendar-mcp',
-  );
-  if (fs.existsSync(calendarMcpDir)) {
-    mounts.push({
-      hostPath: calendarMcpDir,
-      containerPath: '/workspace/calendar-mcp',
-      readonly: false,
-    });
-  }
-
   // Additional mounts validated against external allowlist (tamper-proof from containers)
   if (group.containerConfig?.additionalMounts) {
     const validatedMounts = validateAdditionalMounts(
