@@ -121,6 +121,49 @@ curl -s http://host.docker.internal:3003/connections \
 # 5. Use the new connection_id in future API calls for that user
 ```
 
+## Groceries Database
+
+A SQLite database of Vin's grocery receipts from Kivra (Swedish digital mailbox) is available at:
+
+```
+/workspace/project/data/groceries.db
+```
+
+Query with `sqlite3 /workspace/project/data/groceries.db "<query>"`.
+
+**Schema:**
+- `stores` (id, name, address, org_number) — 13 stores (ICA locations + pharmacies)
+- `receipts` (id, key, store_id, purchase_date, total_amount, source_file) — ~568 receipts, 2022–2025
+- `line_items` (id, receipt_id, name, normalized_name, price, quantity, unit, unit_price, item_type) — ~4200 items, 1250 unique products
+- `discounts` (id, line_item_id, description, amount) — costModifiers from receipts
+- `product_categories` (id, name) + `product_category_map` (normalized_name, category_id, confidence, source) — currently empty, for future classification
+
+**Key columns:**
+- `normalized_name` — lowercase, trimmed, leading `*` stripped. Use this for grouping/matching products.
+- `quantity` / `unit` — parsed from strings like "0,405 kg" or "2 st". Often null (item sold at flat price).
+- `item_type` — `'product'` (groceries) or `'general_deposit'` (pant/bottle deposit returns).
+
+**Useful queries:**
+```sql
+-- Most frequently purchased products
+SELECT normalized_name, COUNT(DISTINCT receipt_id) as trips, COUNT(*) as times
+FROM line_items WHERE item_type='product'
+GROUP BY normalized_name ORDER BY trips DESC LIMIT 20;
+
+-- Average days between purchases (for items bought 3+ times)
+WITH p AS (
+  SELECT normalized_name, r.purchase_date,
+    LAG(r.purchase_date) OVER (PARTITION BY normalized_name ORDER BY r.purchase_date) prev
+  FROM line_items li JOIN receipts r ON li.receipt_id = r.id WHERE li.item_type='product'
+)
+SELECT normalized_name, COUNT(*) n, ROUND(AVG(julianday(purchase_date)-julianday(prev)),1) avg_days
+FROM p WHERE prev IS NOT NULL GROUP BY normalized_name HAVING n>=3 ORDER BY avg_days;
+
+-- Monthly spend by store
+SELECT s.name, strftime('%Y-%m', r.purchase_date) month, ROUND(SUM(r.total_amount),2) total
+FROM receipts r JOIN stores s ON r.store_id=s.id GROUP BY s.name, month ORDER BY month DESC;
+```
+
 ## Your Workspace
 
 Files you create are saved in `/workspace/group/`. Use this for notes, research, or anything that should persist.
