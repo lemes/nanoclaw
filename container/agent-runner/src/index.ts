@@ -30,7 +30,6 @@ interface ContainerInput {
   assistantName?: string;
   script?: string;
   imageAttachments?: Array<{ relativePath: string; mediaType: string }>;
-
 }
 
 interface ImageContentBlock {
@@ -467,10 +466,10 @@ async function runQuery(
         },
         calendar: {
           command: 'npx',
-          args: ['-y', '@gongrzhe/server-calendar-autoauth-mcp'],
+          args: ['-y', '@cocal/google-calendar-mcp'],
           env: {
-            CALENDAR_OAUTH_PATH: '/workspace/calendar-mcp/gcp-oauth.keys.json',
-            CALENDAR_CREDENTIALS_PATH: '/workspace/calendar-mcp/credentials.json',
+            GOOGLE_OAUTH_CREDENTIALS: '/workspace/calendar-mcp/oauth-credentials.json',
+            GOOGLE_CALENDAR_MCP_TOKEN_PATH: '/workspace/calendar-mcp/tokens',
           },
         },
       },

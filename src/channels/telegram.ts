@@ -1,7 +1,10 @@
 import https from 'https';
 import { Api, Bot } from 'grammy';
 
-import { ASSISTANT_NAME, TRIGGER_PATTERN } from '../config.js';
+import path from 'path';
+
+import { ASSISTANT_NAME, GROUPS_DIR, TRIGGER_PATTERN } from '../config.js';
+import { processImage } from '../image.js';
 import { transcribeAudio } from '../transcription.js';
 import { readEnvFile } from '../env.js';
 import { logger } from '../logger.js';
@@ -118,7 +121,11 @@ export async function sendPoolMessage(
       await sendTelegramMessage(api, numericId, text);
     } else {
       for (let i = 0; i < text.length; i += MAX_LENGTH) {
-        await sendTelegramMessage(api, numericId, text.slice(i, i + MAX_LENGTH));
+        await sendTelegramMessage(
+          api,
+          numericId,
+          text.slice(i, i + MAX_LENGTH),
+        );
       }
     }
     logger.info(
@@ -298,7 +305,60 @@ export class TelegramChannel implements Channel {
       });
     };
 
-    this.bot.on('message:photo', (ctx) => storeNonText(ctx, '[Photo]'));
+    this.bot.on('message:photo', async (ctx) => {
+      const chatJid = `tg:${ctx.chat.id}`;
+      const group = this.opts.registeredGroups()[chatJid];
+      if (!group) return;
+
+      const timestamp = new Date(ctx.message.date * 1000).toISOString();
+      const senderName =
+        ctx.from?.first_name ||
+        ctx.from?.username ||
+        ctx.from?.id?.toString() ||
+        'Unknown';
+      const caption = ctx.message.caption || '';
+
+      let content = caption ? `[Photo] ${caption}` : '[Photo]';
+      try {
+        const photos = ctx.message.photo;
+        const largest = photos[photos.length - 1];
+        const file = await ctx.api.getFile(largest.file_id);
+        const url = `https://api.telegram.org/file/bot${this.botToken}/${file.file_path}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const buffer = Buffer.from(await res.arrayBuffer());
+          const groupDir = path.join(GROUPS_DIR, group.folder);
+          const result = await processImage(buffer, groupDir, caption);
+          if (result) {
+            content = result.content;
+          }
+        }
+      } catch (err) {
+        logger.warn(
+          { err, chatJid },
+          'Telegram image - download/process failed',
+        );
+      }
+
+      const isGroup =
+        ctx.chat.type === 'group' || ctx.chat.type === 'supergroup';
+      this.opts.onChatMetadata(
+        chatJid,
+        timestamp,
+        undefined,
+        'telegram',
+        isGroup,
+      );
+      this.opts.onMessage(chatJid, {
+        id: ctx.message.message_id.toString(),
+        chat_jid: chatJid,
+        sender: ctx.from?.id?.toString() || '',
+        sender_name: senderName,
+        content,
+        timestamp,
+        is_from_me: false,
+      });
+    });
     this.bot.on('message:video', (ctx) => storeNonText(ctx, '[Video]'));
     this.bot.on('message:voice', async (ctx) => {
       const chatJid = `tg:${ctx.chat.id}`;
@@ -330,7 +390,13 @@ export class TelegramChannel implements Channel {
 
       const isGroup =
         ctx.chat.type === 'group' || ctx.chat.type === 'supergroup';
-      this.opts.onChatMetadata(chatJid, timestamp, undefined, 'telegram', isGroup);
+      this.opts.onChatMetadata(
+        chatJid,
+        timestamp,
+        undefined,
+        'telegram',
+        isGroup,
+      );
       this.opts.onMessage(chatJid, {
         id: ctx.message.message_id.toString(),
         chat_jid: chatJid,

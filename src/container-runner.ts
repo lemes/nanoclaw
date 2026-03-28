@@ -44,7 +44,6 @@ export interface ContainerInput {
   assistantName?: string;
   script?: string;
   imageAttachments?: Array<{ relativePath: string; mediaType: string }>;
-
 }
 
 export interface ContainerOutput {
@@ -212,16 +211,17 @@ function buildVolumeMounts(
     readonly: false,
   });
 
-  // Google Calendar MCP credentials (read-only)
+  // Google Calendar MCP credentials (read-write for token refresh)
   const calendarMcpDir = path.join(
     process.env.HOME || '/root',
-    '.calendar-mcp',
+    '.config',
+    'google-calendar-mcp',
   );
   if (fs.existsSync(calendarMcpDir)) {
     mounts.push({
       hostPath: calendarMcpDir,
       containerPath: '/workspace/calendar-mcp',
-      readonly: true,
+      readonly: false,
     });
   }
 
