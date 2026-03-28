@@ -210,6 +210,19 @@ function buildVolumeMounts(
     readonly: false,
   });
 
+  // Google Calendar MCP credentials (read-only)
+  const calendarMcpDir = path.join(
+    process.env.HOME || '/root',
+    '.calendar-mcp',
+  );
+  if (fs.existsSync(calendarMcpDir)) {
+    mounts.push({
+      hostPath: calendarMcpDir,
+      containerPath: '/workspace/calendar-mcp',
+      readonly: true,
+    });
+  }
+
   // Additional mounts validated against external allowlist (tamper-proof from containers)
   if (group.containerConfig?.additionalMounts) {
     const validatedMounts = validateAdditionalMounts(
@@ -431,15 +444,15 @@ export async function runContainerAgent(
         { group: group.name, containerName },
         'Container timeout, stopping gracefully',
       );
-      exec(stopContainer(containerName), { timeout: 15000 }, (err) => {
-        if (err) {
-          logger.warn(
-            { group: group.name, containerName, err },
-            'Graceful stop failed, force killing',
-          );
-          container.kill('SIGKILL');
-        }
-      });
+      try {
+        stopContainer(containerName);
+      } catch (err: unknown) {
+        logger.warn(
+          { group: group.name, containerName, err },
+          'Graceful stop failed, force killing',
+        );
+        container.kill('SIGKILL');
+      }
     };
 
     let timeout = setTimeout(killOnTimeout, timeoutMs);
