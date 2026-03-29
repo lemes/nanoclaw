@@ -136,12 +136,14 @@ Query with `sqlite3 /workspace/project/data/groceries.db "<query>"`.
 - `receipts` (id, key, store_id, purchase_date, total_amount, source_file) — ~568 receipts, 2022–2025
 - `line_items` (id, receipt_id, name, normalized_name, price, quantity, unit, unit_price, item_type) — ~4200 items, 1250 unique products
 - `discounts` (id, line_item_id, description, amount) — costModifiers from receipts
-- `product_categories` (id, name) + `product_category_map` (normalized_name, category_id, confidence, source) — currently empty, for future classification
+- `product_categories` (id, name) + `product_category_map` (normalized_name, category_id, confidence, source) — 1249 products classified via LLM
 
 **Key columns:**
 - `normalized_name` — lowercase, trimmed, leading `*` stripped. Use this for grouping/matching products.
 - `quantity` / `unit` — parsed from strings like "0,405 kg" or "2 st". Often null (item sold at flat price).
 - `item_type` — `'product'` (groceries) or `'general_deposit'` (pant/bottle deposit returns).
+
+**Categories:** Vegetables, Fruit, Dairy, Bread & Bakery, Meat & Fish, Beverages, Pantry & Dry Goods, Frozen, Snacks & Sweets, Condiments & Sauces, Household, Health & Pharmacy, Baby, Other.
 
 **Useful queries:**
 ```sql
@@ -162,6 +164,21 @@ FROM p WHERE prev IS NOT NULL GROUP BY normalized_name HAVING n>=3 ORDER BY avg_
 -- Monthly spend by store
 SELECT s.name, strftime('%Y-%m', r.purchase_date) month, ROUND(SUM(r.total_amount),2) total
 FROM receipts r JOIN stores s ON r.store_id=s.id GROUP BY s.name, month ORDER BY month DESC;
+
+-- Spending by category
+SELECT pc.name category, COUNT(*) items, ROUND(SUM(li.price),2) total_spent
+FROM line_items li
+JOIN product_category_map pcm ON li.normalized_name=pcm.normalized_name
+JOIN product_categories pc ON pcm.category_id=pc.id
+GROUP BY pc.name ORDER BY total_spent DESC;
+
+-- Top products in a category
+SELECT li.normalized_name, COUNT(DISTINCT li.receipt_id) trips, ROUND(SUM(li.price),2) spent
+FROM line_items li
+JOIN product_category_map pcm ON li.normalized_name=pcm.normalized_name
+JOIN product_categories pc ON pcm.category_id=pc.id
+WHERE pc.name='Vegetables'
+GROUP BY li.normalized_name ORDER BY trips DESC LIMIT 10;
 ```
 
 ## Your Workspace
