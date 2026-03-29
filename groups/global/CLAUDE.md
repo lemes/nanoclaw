@@ -121,6 +121,25 @@ curl -s http://host.docker.internal:3003/connections \
 # 5. Use the new connection_id in future API calls for that user
 ```
 
+## Kivra Receipt Sync
+
+A kivra-sync container runs on the host at `http://host.docker.internal:8080`. It downloads grocery receipts from Kivra (Swedish digital mailbox) and requires BankID authentication.
+
+**When Vin asks to sync Kivra receipts:**
+
+1. Tell Vin to open `https://viniciuss-macbook-pro.tailc7cd9d.ts.net:8080` on his phone.
+2. He taps "Run sync now", then taps "Open BankID" to authenticate.
+3. Poll status until sync completes:
+   ```bash
+   curl -s http://host.docker.internal:8080/status
+   ```
+   Status transitions: `idle` → `processing` → `qr_ready` → `authenticated` → `complete`
+4. After sync completes, tell Vin to run the import on the host:
+   ```
+   cd ~/code/nanoclaw && npx tsx scripts/import-groceries.ts
+   ```
+   This imports new receipts into the groceries database (idempotent, skips existing).
+
 ## Groceries Database
 
 A SQLite database of Vin's grocery receipts from Kivra (Swedish digital mailbox) is available at:
