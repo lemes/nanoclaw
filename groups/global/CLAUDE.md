@@ -123,22 +123,22 @@ curl -s http://host.docker.internal:3003/connections \
 
 ## Kivra Receipt Sync
 
-A kivra-sync container runs on the host at `http://host.docker.internal:8080`. It downloads grocery receipts from Kivra (Swedish digital mailbox) and requires BankID authentication.
+A kivra-sync container runs on the host at `http://host.docker.internal:4001`. It downloads grocery receipts from Kivra (Swedish digital mailbox) and requires BankID authentication.
 
 **When Vin asks to sync Kivra receipts:**
 
-1. Tell Vin to open `https://viniciuss-macbook-pro.tailc7cd9d.ts.net:8080` on his phone.
+1. Tell Vin to open `https://viniciuss-macbook-pro.tailc7cd9d.ts.net:4001` on his phone.
 2. He taps "Run sync now", then taps "Open BankID" to authenticate.
 3. Poll status until sync completes:
    ```bash
-   curl -s http://host.docker.internal:8080/status
+   curl -s http://host.docker.internal:4001/status
    ```
    Status transitions: `idle` → `processing` → `qr_ready` → `authenticated` → `complete`
-4. After sync completes, tell Vin to run the import on the host:
+4. After sync completes, trigger import + classification:
+   ```bash
+   echo '{"type":"run_host_script","script":"import-groceries.ts"}' > /workspace/ipc/tasks/import-$(date +%s).json
    ```
-   cd ~/code/nanoclaw && npx tsx scripts/import-groceries.ts
-   ```
-   This imports new receipts into the groceries database (idempotent, skips existing).
+   This imports new receipts and classifies any new products automatically.
 
 ## Groceries Database
 

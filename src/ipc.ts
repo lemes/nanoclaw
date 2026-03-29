@@ -1,3 +1,4 @@
+import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
@@ -480,6 +481,40 @@ export async function processTaskIpc(
         );
       }
       break;
+
+    case 'run_host_script': {
+      // Run a pre-approved script on the host. Only main group allowed.
+      // Scripts must be in the project's scripts/ directory.
+      if (!isMain) {
+        logger.warn(
+          { sourceGroup },
+          'Unauthorized run_host_script attempt blocked',
+        );
+        break;
+      }
+      const scriptName = data.script;
+      if (!scriptName || /[/\\]/.test(scriptName)) {
+        logger.warn({ scriptName }, 'Invalid script name');
+        break;
+      }
+      const scriptPath = path.join(process.cwd(), 'scripts', scriptName);
+      if (!fs.existsSync(scriptPath)) {
+        logger.warn({ scriptPath }, 'Host script not found');
+        break;
+      }
+      try {
+        logger.info({ scriptPath, sourceGroup }, 'Running host script via IPC');
+        const output = execSync(`npx tsx ${scriptPath}`, {
+          cwd: process.cwd(),
+          timeout: 60_000,
+          encoding: 'utf-8',
+        });
+        logger.info({ scriptName, output: output.trim() }, 'Host script completed');
+      } catch (err) {
+        logger.error({ scriptName, err }, 'Host script failed');
+      }
+      break;
+    }
 
     default:
       logger.warn({ type: data.type }, 'Unknown IPC task type');

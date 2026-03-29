@@ -11,6 +11,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import Database from 'better-sqlite3';
+import fs from 'fs';
 import path from 'path';
 
 const DB_PATH = path.join(process.cwd(), 'data', 'groceries.db');
@@ -107,8 +108,17 @@ Return ONLY a JSON object mapping each product name (exactly as given) to its ca
 }
 
 async function main() {
+  // Load API key from secrets file if not in environment
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.error('ANTHROPIC_API_KEY environment variable is required.');
+    try {
+      const secretsPath = path.join(process.cwd(), 'groups', 'telegram_main', 'secrets.env');
+      const secrets = fs.readFileSync(secretsPath, 'utf-8');
+      const match = secrets.match(/ANTHROPIC_API_KEY=(.+)/);
+      if (match) process.env.ANTHROPIC_API_KEY = match[1].trim();
+    } catch {}
+  }
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error('ANTHROPIC_API_KEY not found in environment or secrets.env');
     process.exit(1);
   }
 

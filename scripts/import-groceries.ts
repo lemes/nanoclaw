@@ -6,8 +6,10 @@
  * Usage: npx tsx scripts/import-groceries.ts
  */
 
+import Anthropic from '@anthropic-ai/sdk';
 import Database from 'better-sqlite3';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -161,7 +163,7 @@ function extractStoreInfo(receipt: any): StoreInfo {
 
 // --- Main ---
 
-function main() {
+async function main() {
   const jsonFiles = fs
     .readdirSync(RECEIPTS_DIR, { recursive: true })
     .map((f) => path.join(RECEIPTS_DIR, f.toString()))
@@ -272,14 +274,120 @@ function main() {
 
   importAll();
 
-  console.log(`Done.`);
+  console.log(`Import done.`);
   console.log(`  Receipts imported: ${imported}`);
   console.log(`  Receipts skipped (already in DB): ${skipped}`);
   console.log(`  Line items: ${totalItems}`);
   console.log(`  Errors: ${errors}`);
-  console.log(`  Database: ${DB_PATH}`);
 
+  // --- Classification of new products ---
+  await classifyNewProducts(db);
+
+  console.log(`  Database: ${DB_PATH}`);
   db.close();
+}
+
+// --- Classification ---
+
+const CATEGORIES = [
+  'Vegetables', 'Fruit', 'Dairy', 'Bread & Bakery', 'Meat & Fish',
+  'Beverages', 'Pantry & Dry Goods', 'Frozen', 'Snacks & Sweets',
+  'Condiments & Sauces', 'Household', 'Health & Pharmacy', 'Baby', 'Other',
+];
+const CLASSIFY_BATCH_SIZE = 100;
+const CLASSIFY_MODEL = 'claude-haiku-4-5-20251001';
+
+function loadApiKey(): string | null {
+  // 1. Environment variable
+  if (process.env.ANTHROPIC_API_KEY) return process.env.ANTHROPIC_API_KEY;
+  // 2. Host-only config file
+  try {
+    const keyPath = path.join(os.homedir(), '.config', 'nanoclaw', 'anthropic-api-key');
+    return fs.readFileSync(keyPath, 'utf-8').trim();
+  } catch {
+    return null;
+  }
+}
+
+async function classifyBatch(
+  client: Anthropic,
+  products: string[],
+): Promise<Record<string, string>> {
+  const productList = products.map((p, i) => `${i + 1}. ${p}`).join('\n');
+  const response = await client.messages.create({
+    model: CLASSIFY_MODEL,
+    max_tokens: 4096,
+    messages: [{
+      role: 'user',
+      content: `Classify these Swedish grocery product names into exactly one category each.
+
+Categories: ${CATEGORIES.join(', ')}
+
+Products:
+${productList}
+
+Return ONLY a JSON object mapping each product name (exactly as given) to its category. No explanation, no markdown fences. Example: {"gul lök ica": "Vegetables", "smörcroissant": "Bread & Bakery"}`,
+    }],
+  });
+  const text = response.content[0].type === 'text' ? response.content[0].text : '';
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return {};
+  try { return JSON.parse(jsonMatch[0]); } catch { return {}; }
+}
+
+async function classifyNewProducts(db: Database.Database) {
+  const apiKey = loadApiKey();
+  if (!apiKey) {
+    console.log('  Classification skipped (no API key found).');
+    return;
+  }
+
+  // Seed categories
+  const insertCat = db.prepare('INSERT OR IGNORE INTO product_categories (name) VALUES (?)');
+  for (const cat of CATEGORIES) insertCat.run(cat);
+
+  // Find unclassified products
+  const unclassified = (db.prepare(
+    `SELECT DISTINCT li.normalized_name FROM line_items li
+     WHERE li.item_type = 'product'
+       AND li.normalized_name NOT IN (SELECT normalized_name FROM product_category_map)
+     ORDER BY li.normalized_name`
+  ).all() as { normalized_name: string }[]).map(r => r.normalized_name);
+
+  if (unclassified.length === 0) {
+    console.log('  Classification: all products already classified.');
+    return;
+  }
+
+  console.log(`  Classifying ${unclassified.length} new products...`);
+
+  const client = new Anthropic({ apiKey });
+  const categoryRows = db.prepare('SELECT id, name FROM product_categories').all() as { id: number; name: string }[];
+  const categoryMap = new Map(categoryRows.map(r => [r.name, r.id]));
+  const insertMapping = db.prepare(
+    'INSERT OR REPLACE INTO product_category_map (normalized_name, category_id, confidence, source) VALUES (?, ?, ?, \'llm\')'
+  );
+
+  let classified = 0;
+  for (let i = 0; i < unclassified.length; i += CLASSIFY_BATCH_SIZE) {
+    const batch = unclassified.slice(i, i + CLASSIFY_BATCH_SIZE);
+    try {
+      const results = await classifyBatch(client, batch);
+      const insertBatch = db.transaction(() => {
+        for (const [product, category] of Object.entries(results)) {
+          const catId = categoryMap.get(category)
+            ?? categoryMap.get(CATEGORIES.find(c => c.toLowerCase() === category.toLowerCase()) || '')
+            ?? categoryMap.get('Other');
+          if (catId) { insertMapping.run(product, catId, 0.9); classified++; }
+        }
+      });
+      insertBatch();
+    } catch (err: any) {
+      console.error(`  Classification batch failed:`, err?.message || err);
+      if (err?.status === 401) { console.error('  Auth failed — check API key.'); break; }
+    }
+  }
+  console.log(`  Classified: ${classified} products.`);
 }
 
 main();
