@@ -1,0 +1,23 @@
+# NanoClaw Web Publish — serves static files from group public/ directories
+# TLS via Tailscale's built-in cert provisioning
+#
+# URL pattern: https://viniciuss-macbook-pro.tailc7cd9d.ts.net:8443/{group}/page.html
+# Files live at: groups/{group}/public/page.html
+
+https://viniciuss-macbook-pro.tailc7cd9d.ts.net:8443 {
+	tls {
+		get_certificate tailscale
+	}
+
+	# Route /{group}/* to groups/{group}/public/*
+	@groupPath path_regexp group ^/([a-zA-Z0-9_-]+)(/.*)?$
+	handle @groupPath {
+		root * {$NANOCLAW_GROUPS_DIR}/{re.group.1}/public
+		rewrite * {re.group.2}
+		file_server
+	}
+
+	handle / {
+		respond "NanoClaw Web Publish" 200
+	}
+}
