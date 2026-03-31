@@ -509,7 +509,10 @@ export async function processTaskIpc(
           timeout: 60_000,
           encoding: 'utf-8',
         });
-        logger.info({ scriptName, output: output.trim() }, 'Host script completed');
+        logger.info(
+          { scriptName, output: output.trim() },
+          'Host script completed',
+        );
       } catch (err) {
         logger.error({ scriptName, err }, 'Host script failed');
       }
