@@ -4,6 +4,10 @@ All notable changes to NanoClaw will be documented in this file.
 
 For detailed release notes, see the [full changelog on the documentation site](https://docs.nanoclaw.dev/changelog).
 
+## Unreleased
+
+- Added Ghostfolio container skill — agents can query investment portfolio (holdings, performance, dividends, accounts, activities) via curl. Auth handled by OneCLI generic secret with Bearer header injection. See `container/skills/ghostfolio/SKILL.md`.
+
 ## [1.2.35] - 2026-03-26
 
 - [BREAKING] OneCLI Agent Vault replaces the built-in credential proxy. Existing `.env` credentials must be migrated to the vault. Run `/init-onecli` to install OneCLI and migrate credentials.
