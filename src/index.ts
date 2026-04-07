@@ -65,6 +65,7 @@ import {
 import { startLocationServer } from './location.js';
 import { startSchedulerLoop } from './task-scheduler.js';
 import { Channel, NewMessage, RegisteredGroup } from './types.js';
+import { parseFileReferences } from './file.js';
 import { parseImageReferences } from './image.js';
 import { logger } from './logger.js';
 
@@ -255,6 +256,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
 
   const prompt = formatMessages(missedMessages, TIMEZONE);
   const imageAttachments = parseImageReferences(missedMessages);
+  const fileAttachments = parseFileReferences(missedMessages);
 
   // Advance cursor so the piping path in startMessageLoop won't re-fetch
   // these messages. Save the old cursor so we can roll back on error.
@@ -291,6 +293,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
     prompt,
     chatJid,
     imageAttachments,
+    fileAttachments,
     async (result) => {
       // Streaming output callback — called for each agent result
       if (result.result) {
@@ -350,6 +353,7 @@ async function runAgent(
   prompt: string,
   chatJid: string,
   imageAttachments: Array<{ relativePath: string; mediaType: string }>,
+  fileAttachments: Array<{ relativePath: string; mimeType: string }>,
   onOutput?: (output: ContainerOutput) => Promise<void>,
 ): Promise<'success' | 'error'> {
   const isMain = group.isMain === true;
@@ -403,6 +407,7 @@ async function runAgent(
         isMain,
         assistantName: ASSISTANT_NAME,
         ...(imageAttachments.length > 0 && { imageAttachments }),
+        ...(fileAttachments.length > 0 && { fileAttachments }),
       },
       (proc, containerName) =>
         queue.registerProcess(chatJid, proc, containerName, group.folder),

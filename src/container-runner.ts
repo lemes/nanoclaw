@@ -45,6 +45,7 @@ export interface ContainerInput {
   assistantName?: string;
   script?: string;
   imageAttachments?: Array<{ relativePath: string; mediaType: string }>;
+  fileAttachments?: Array<{ relativePath: string; mimeType: string }>;
 }
 
 export interface ContainerOutput {

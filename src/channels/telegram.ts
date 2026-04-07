@@ -4,6 +4,7 @@ import { Api, Bot } from 'grammy';
 import path from 'path';
 
 import { ASSISTANT_NAME, GROUPS_DIR, TRIGGER_PATTERN } from '../config.js';
+import { processFile } from '../file.js';
 import { processImage } from '../image.js';
 import { transcribeAudio } from '../transcription.js';
 import { readEnvFile } from '../env.js';
@@ -408,9 +409,77 @@ export class TelegramChannel implements Channel {
       });
     });
     this.bot.on('message:audio', (ctx) => storeNonText(ctx, '[Audio]'));
-    this.bot.on('message:document', (ctx) => {
-      const name = ctx.message.document?.file_name || 'file';
-      storeNonText(ctx, `[Document: ${name}]`);
+    this.bot.on('message:document', async (ctx) => {
+      const chatJid = `tg:${ctx.chat.id}`;
+      const group = this.opts.registeredGroups()[chatJid];
+      if (!group) return;
+
+      const timestamp = new Date(ctx.message.date * 1000).toISOString();
+      const senderName =
+        ctx.from?.first_name ||
+        ctx.from?.username ||
+        ctx.from?.id?.toString() ||
+        'Unknown';
+      const caption = ctx.message.caption || '';
+      const doc = ctx.message.document;
+      const originalName = doc?.file_name || 'file';
+      const mimeType = doc?.mime_type || 'application/octet-stream';
+
+      let content = caption
+        ? `[Document: ${originalName}] ${caption}`
+        : `[Document: ${originalName}]`;
+
+      try {
+        const fileSize = doc?.file_size || 0;
+        if (fileSize > 20 * 1024 * 1024) {
+          logger.warn(
+            { chatJid, fileSize, originalName },
+            'Document too large to download (>20MB)',
+          );
+        } else {
+          const file = await ctx.api.getFile(doc!.file_id);
+          const url = `https://api.telegram.org/file/bot${this.botToken}/${file.file_path}`;
+          const res = await fetch(url);
+          if (res.ok) {
+            const buffer = Buffer.from(await res.arrayBuffer());
+            const groupDir = path.join(GROUPS_DIR, group.folder);
+            const result = await processFile(
+              buffer,
+              groupDir,
+              originalName,
+              mimeType,
+              caption,
+            );
+            if (result) {
+              content = result.content;
+            }
+          }
+        }
+      } catch (err) {
+        logger.warn(
+          { err, chatJid },
+          'Telegram document - download/process failed',
+        );
+      }
+
+      const isGroup =
+        ctx.chat.type === 'group' || ctx.chat.type === 'supergroup';
+      this.opts.onChatMetadata(
+        chatJid,
+        timestamp,
+        undefined,
+        'telegram',
+        isGroup,
+      );
+      this.opts.onMessage(chatJid, {
+        id: ctx.message.message_id.toString(),
+        chat_jid: chatJid,
+        sender: ctx.from?.id?.toString() || '',
+        sender_name: senderName,
+        content,
+        timestamp,
+        is_from_me: false,
+      });
     });
     this.bot.on('message:sticker', (ctx) => {
       const emoji = ctx.message.sticker?.emoji || '';

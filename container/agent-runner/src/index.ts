@@ -30,17 +30,22 @@ interface ContainerInput {
   assistantName?: string;
   script?: string;
   imageAttachments?: Array<{ relativePath: string; mediaType: string }>;
+  fileAttachments?: Array<{ relativePath: string; mimeType: string }>;
 }
 
 interface ImageContentBlock {
   type: 'image';
   source: { type: 'base64'; media_type: string; data: string };
 }
+interface DocumentContentBlock {
+  type: 'document';
+  source: { type: 'base64'; media_type: 'application/pdf'; data: string };
+}
 interface TextContentBlock {
   type: 'text';
   text: string;
 }
-type ContentBlock = ImageContentBlock | TextContentBlock;
+type ContentBlock = ImageContentBlock | DocumentContentBlock | TextContentBlock;
 
 interface ContainerOutput {
   status: 'success' | 'error';
@@ -377,6 +382,25 @@ async function runQuery(
     }
     if (blocks.length > 0) {
       stream.pushMultimodal(blocks);
+    }
+  }
+
+  // Load PDF file attachments as document content blocks
+  if (containerInput.fileAttachments?.length) {
+    const pdfBlocks: ContentBlock[] = [];
+    for (const file of containerInput.fileAttachments) {
+      if (file.mimeType === 'application/pdf') {
+        const filePath = path.join('/workspace/group', file.relativePath);
+        try {
+          const data = fs.readFileSync(filePath).toString('base64');
+          pdfBlocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data } });
+        } catch (err) {
+          log(`Failed to load PDF: ${filePath}`);
+        }
+      }
+    }
+    if (pdfBlocks.length > 0) {
+      stream.pushMultimodal(pdfBlocks);
     }
   }
 
