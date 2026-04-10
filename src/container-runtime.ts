@@ -12,11 +12,16 @@ export const CONTAINER_RUNTIME_BIN = 'docker';
 
 /** CLI args needed for the container to resolve the host gateway. */
 export function hostGatewayArgs(): string[] {
+  const args = [
+    // Service aliases so OneCLI can match secrets by hostname
+    '--add-host=ghostfolio:host-gateway',
+    '--add-host=nango:host-gateway',
+  ];
   // On Linux, host.docker.internal isn't built-in — add it explicitly
   if (os.platform() === 'linux') {
-    return ['--add-host=host.docker.internal:host-gateway'];
+    args.push('--add-host=host.docker.internal:host-gateway');
   }
-  return [];
+  return args;
 }
 
 /** Returns CLI args for a readonly bind mount. */

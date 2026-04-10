@@ -63,7 +63,7 @@ Read these files when location context is relevant — e.g. weather, nearby plac
 
 Google Calendar is accessed via Nango's HTTP proxy. No MCP tools — use `curl` in Bash. Authentication is handled automatically by the credential proxy — do not add any auth headers.
 
-**Base URL:** `http://host.docker.internal:3003/proxy/calendar/v3`
+**Base URL:** `http://nango:3003/proxy/calendar/v3`
 **Required headers:**
 ```
 Provider-Config-Key: google-calendar
@@ -73,24 +73,24 @@ Connection-Id: <user-connection-id>
 **Look up connected users:**
 ```bash
 # List all connected Google Calendar accounts
-curl -s http://host.docker.internal:3003/connections
+curl -s http://nango:3003/connections
 # Each connection has a connection_id and end_user with id/display_name/email
 ```
 
 **Common API calls:**
 ```bash
 # List calendars (replace <connection-id> with the user's connection_id from above)
-curl -s http://host.docker.internal:3003/proxy/calendar/v3/users/me/calendarList \
+curl -s http://nango:3003/proxy/calendar/v3/users/me/calendarList \
   -H "Provider-Config-Key: google-calendar" \
   -H "Connection-Id: <connection-id>"
 
 # List events (use timeMin/timeMax as query params, ISO 8601)
-curl -s "http://host.docker.internal:3003/proxy/calendar/v3/calendars/primary/events?timeMin=2026-03-28T00:00:00Z&timeMax=2026-03-29T00:00:00Z" \
+curl -s "http://nango:3003/proxy/calendar/v3/calendars/primary/events?timeMin=2026-03-28T00:00:00Z&timeMax=2026-03-29T00:00:00Z" \
   -H "Provider-Config-Key: google-calendar" \
   -H "Connection-Id: <connection-id>"
 
 # Create event
-curl -s -X POST http://host.docker.internal:3003/proxy/calendar/v3/calendars/primary/events \
+curl -s -X POST http://nango:3003/proxy/calendar/v3/calendars/primary/events \
   -H "Provider-Config-Key: google-calendar" \
   -H "Connection-Id: <connection-id>" \
   -H "Content-Type: application/json" \
@@ -103,7 +103,7 @@ Nango handles OAuth token refresh automatically.
 **Adding a new user's Google Calendar:**
 ```bash
 # 1. Create a connect session (replace display_name and id with the user's info)
-curl -s -X POST http://host.docker.internal:3003/connect/sessions \
+curl -s -X POST http://nango:3003/connect/sessions \
   -H "Content-Type: application/json" \
   -d '{"end_user": {"id": "username", "display_name": "Display Name"}, "allowed_integrations": ["google-calendar"]}'
 
@@ -111,7 +111,7 @@ curl -s -X POST http://host.docker.internal:3003/connect/sessions \
 #    https://viniciuss-macbook-pro.tailc7cd9d.ts.net:3009/?session_token=<token>&apiURL=https%3A%2F%2Fviniciuss-macbook-pro.tailc7cd9d.ts.net
 # 3. Send that URL to the user — they open it on any device (phone works via Tailscale)
 # 4. After they complete Google sign-in, check their connection:
-curl -s http://host.docker.internal:3003/connections
+curl -s http://nango:3003/connections
 # 5. Use the new connection_id in future API calls for that user
 ```
 

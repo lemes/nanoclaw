@@ -34,7 +34,7 @@ import os from 'os';
 const GHOSTFOLIO_URL = process.env.GHOSTFOLIO_URL ?? 'http://localhost:3333';
 const TOKEN_PATH = path.join(os.homedir(), '.config', 'nanoclaw', 'ghostfolio-token');
 const SECRET_NAME = 'Ghostfolio';
-const HOST_PATTERN = 'host.docker.internal';
+const HOST_PATTERN = 'ghostfolio';
 
 async function readSecurityToken(): Promise<string> {
   if (!fs.existsSync(TOKEN_PATH)) {
@@ -83,7 +83,6 @@ function createSecret(jwt: string): void {
     '--type', 'generic',
     '--value', jwt,
     '--host-pattern', HOST_PATTERN,
-    '--path-pattern', '/api/*',
     '--header-name', 'Authorization',
     '--value-format', 'Bearer {value}',
   ], { stdio: 'pipe', encoding: 'utf-8' });

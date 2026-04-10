@@ -8,7 +8,7 @@ allowed-tools: Bash(curl:*)
 
 Query the user's investment portfolio via the Ghostfolio REST API. Authentication is handled automatically by the credential proxy — do not add any auth headers.
 
-**Base URL:** `http://host.docker.internal:3333/api/v1`
+**Base URL:** `http://ghostfolio:3333/api/v1`
 
 ## Endpoints
 
@@ -16,22 +16,22 @@ Query the user's investment portfolio via the Ghostfolio REST API. Authenticatio
 
 ```bash
 # Current holdings with values and allocation
-curl -s http://host.docker.internal:3333/api/v1/portfolio/holdings
+curl -s http://ghostfolio:3333/api/v1/portfolio/holdings
 
 # Portfolio performance over a time range
-curl -s "http://host.docker.internal:3333/api/v1/portfolio/performance?range=1y"
+curl -s "http://ghostfolio:3333/api/v1/portfolio/performance?range=1y"
 
 # Dividend history
-curl -s "http://host.docker.internal:3333/api/v1/portfolio/dividends?range=1y"
+curl -s "http://ghostfolio:3333/api/v1/portfolio/dividends?range=1y"
 
 # Full portfolio details (includes allocation breakdown)
-curl -s "http://host.docker.internal:3333/api/v1/portfolio/details?range=1y"
+curl -s "http://ghostfolio:3333/api/v1/portfolio/details?range=1y"
 
 # Investment timeline
-curl -s "http://host.docker.internal:3333/api/v1/portfolio/investments?range=1y"
+curl -s "http://ghostfolio:3333/api/v1/portfolio/investments?range=1y"
 
 # Details for a specific holding
-curl -s http://host.docker.internal:3333/api/v1/portfolio/holding/YAHOO/AAPL
+curl -s http://ghostfolio:3333/api/v1/portfolio/holding/YAHOO/AAPL
 ```
 
 **Range values:** `1d`, `1w`, `1m`, `3m`, `6m`, `ytd`, `1y`, `3y`, `5y`, `max`
@@ -40,40 +40,40 @@ curl -s http://host.docker.internal:3333/api/v1/portfolio/holding/YAHOO/AAPL
 
 ```bash
 # List all accounts
-curl -s http://host.docker.internal:3333/api/v1/account
+curl -s http://ghostfolio:3333/api/v1/account
 
 # Account details
-curl -s http://host.docker.internal:3333/api/v1/account/{accountId}
+curl -s http://ghostfolio:3333/api/v1/account/{accountId}
 
 # Account balances
-curl -s http://host.docker.internal:3333/api/v1/account/{accountId}/balances
+curl -s http://ghostfolio:3333/api/v1/account/{accountId}/balances
 ```
 
 ### Activities (Transactions)
 
 ```bash
 # List recent activities
-curl -s http://host.docker.internal:3333/api/v1/activities
+curl -s http://ghostfolio:3333/api/v1/activities
 
 # Single activity
-curl -s http://host.docker.internal:3333/api/v1/activities/{activityId}
+curl -s http://ghostfolio:3333/api/v1/activities/{activityId}
 ```
 
 ### Symbol Lookup
 
 ```bash
 # Search for a symbol by name
-curl -s "http://host.docker.internal:3333/api/v1/symbol/lookup?query=Apple"
+curl -s "http://ghostfolio:3333/api/v1/symbol/lookup?query=Apple"
 
 # Get symbol details
-curl -s http://host.docker.internal:3333/api/v1/symbol/YAHOO/AAPL
+curl -s http://ghostfolio:3333/api/v1/symbol/YAHOO/AAPL
 ```
 
 ### Export
 
 ```bash
 # Export all portfolio data
-curl -s http://host.docker.internal:3333/api/v1/export
+curl -s http://ghostfolio:3333/api/v1/export
 ```
 
 ## Usage Notes
