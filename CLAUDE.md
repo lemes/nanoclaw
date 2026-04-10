@@ -26,14 +26,15 @@ Single Node.js process with skill-based channel system. Channels (WhatsApp, Tele
 
 Agent instructions are split into two layers — no duplication between them:
 
-- **`groups/global/CLAUDE.md`** — shared baseline loaded by all groups. Identity, capabilities, formatting, location, groceries, cook mode, task scripts.
+- **`groups/global/CLAUDE.md`** — shared baseline loaded by all groups. Identity, capabilities, formatting, location.
 - **`groups/{name}/CLAUDE.md`** — only what's unique to that group. Never repeat what's in global.
 
 Capabilities go in global unless they're restricted to specific group types:
 
 | Scope | Examples | Where |
 |-------|----------|-------|
-| All groups | Formatting, location, groceries DB, cook mode | `global/` |
+| All groups | Formatting, location | `global/` |
+| All groups (on-demand) | Groceries DB, cook mode, task scripts | `container/skills/` |
 | Admin only | Group management, Gmail, Kivra sync, scheduling others | `telegram_main/` |
 | Direct channels | Google Calendar (full) | `telegram_main/`, `telegram_yasmin/` |
 | Group channels | Google Calendar (query-only) | `telegram_yanicius/` |
