@@ -13,7 +13,7 @@ import os from 'os';
 import path from 'path';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
-const DB_PATH = path.join(DATA_DIR, 'groceries.db');
+const DB_PATH = path.join(process.cwd(), 'groups', 'global', 'groceries.db');
 const RECEIPTS_DIR = path.join(
   DATA_DIR,
   'kivra-receipts',

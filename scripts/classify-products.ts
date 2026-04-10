@@ -14,7 +14,7 @@ import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 
-const DB_PATH = path.join(process.cwd(), 'data', 'groceries.db');
+const DB_PATH = path.join(process.cwd(), 'groups', 'global', 'groceries.db');
 const BATCH_SIZE = 100;
 const MODEL = 'claude-haiku-4-5-20251001';
 
