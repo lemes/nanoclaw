@@ -1,6 +1,6 @@
 # OneCLI Proxy Internals
 
-Reference for how the OneCLI gateway proxy handles credential injection. Based on source analysis of OneCLI v1.15.1 (`apps/gateway/src/`). Installed version: v1.2.0.
+Reference for how the OneCLI gateway proxy handles credential injection. Based on source analysis of OneCLI v1.15.1 (`apps/gateway/src/`).
 
 ## How It Works
 
@@ -18,8 +18,8 @@ Two matching modes:
 | `*.example.com` | `api.example.com`, `sub.api.example.com` | `example.com` |
 
 - Matching is **case-insensitive** (patterns are pre-lowercased)
-- Port is always stripped: a request to `host.docker.internal:3333` matches `hostPattern: "host.docker.internal"`
-- Setting `hostPattern: "host.docker.internal:3333"` is treated as hostname `host.docker.internal` (the `:3333` is stripped) — it does **not** restrict to port 3333
+- Port is always stripped: a request to `ghostfolio:3333` matches `hostPattern: "ghostfolio"`
+- Setting `hostPattern: "ghostfolio:3333"` is treated as hostname `ghostfolio` (the `:3333` is stripped) — it does **not** restrict to port 3333
 
 ## Path Matching
 
@@ -44,6 +44,33 @@ When multiple secrets share a `hostPattern`:
 4. Order is determined by the database query (creation order)
 
 This means overlapping patterns can conflict. For example, if secret A has `/api/*` and secret B has `*`, and B was created first, B wins for `/api/foo`.
+
+## Named Host Aliases
+
+When multiple local services share the same host (e.g. `host.docker.internal`), use **named host aliases** to give each service its own hostname and avoid secret conflicts:
+
+1. Add `extra_hosts` to the OneCLI gateway's docker-compose so the gateway container can resolve the name:
+   ```yaml
+   extra_hosts:
+     - "ghostfolio:host-gateway"
+     - "nango:host-gateway"
+   ```
+
+2. Add `--add-host` to agent containers so they can resolve the name:
+   ```
+   --add-host=ghostfolio:host-gateway
+   --add-host=nango:host-gateway
+   ```
+
+3. Create one secret per service with the alias as `hostPattern`:
+   ```
+   Ghostfolio  hostPattern: ghostfolio   (no pathPattern needed)
+   Nango       hostPattern: nango        (no pathPattern needed)
+   ```
+
+4. Use the alias in agent instructions: `http://ghostfolio:3333/api/v1/...`
+
+No `/etc/hosts` changes are needed on the host — only the two container-level mappings.
 
 ## Injection
 
@@ -73,7 +100,7 @@ Policy decisions are cached per `(account_id, agent_token, hostname)` with a 60-
 
 ## DNS Resolution
 
-The proxy resolves hostnames via standard system DNS (including `/etc/hosts`). There is no hostname allowlist — any resolvable host can be forwarded to.
+The proxy resolves hostnames via standard system DNS (including `/etc/hosts`). There is no hostname allowlist — any resolvable host can be forwarded to. The gateway runs inside a Docker container, so it needs `extra_hosts` entries for custom hostnames.
 
 ## SDK Integration
 
@@ -83,3 +110,25 @@ The SDK's `applyContainerConfig()` adds these to the container's `docker run` ar
 - `NODE_EXTRA_CA_CERTS` — path to proxy CA cert (for HTTPS MITM)
 - `SSL_CERT_FILE` — combined system + proxy CA bundle
 - `CLAUDE_CODE_OAUTH_TOKEN=placeholder` — replaced by proxy at request time
+
+## Updating OneCLI
+
+**Server** (Docker container):
+```bash
+cd ~/.onecli
+docker compose pull app
+docker compose up -d app
+```
+
+Secrets and config are persisted in Docker volumes (`pgdata`, `app-data`) — they survive container recreation.
+
+**CLI** (local binary):
+```bash
+curl -fsSL onecli.sh/cli/install | sh
+```
+
+Installs to `/usr/local/bin/onecli`. The CLI and server versions are independent — the CLI is a thin API client that talks to the server on `localhost:10254`.
+
+## CLI Bugs
+
+- `onecli secrets create` silently ignores `--header-name` and `--value-format` flags — `injectionConfig` is always `null` after create. Workaround: follow up with `onecli secrets update --id <id> --header-name ... --value-format ...`
