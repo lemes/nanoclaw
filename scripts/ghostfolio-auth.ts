@@ -77,12 +77,21 @@ function getExistingSecretId(): string | null {
 }
 
 function createSecret(jwt: string): void {
-  execFileSync('onecli', [
+  const output = execFileSync('onecli', [
     'secrets', 'create',
     '--name', SECRET_NAME,
     '--type', 'generic',
     '--value', jwt,
     '--host-pattern', HOST_PATTERN,
+    '--path-pattern', '/api/*',
+    '--header-name', 'Authorization',
+    '--value-format', 'Bearer {value}',
+  ], { stdio: 'pipe', encoding: 'utf-8' });
+  // OneCLI ignores --header-name/--value-format on create — apply via update
+  const { id } = JSON.parse(output) as { id: string };
+  execFileSync('onecli', [
+    'secrets', 'update',
+    '--id', id,
     '--header-name', 'Authorization',
     '--value-format', 'Bearer {value}',
   ], { stdio: 'inherit' });

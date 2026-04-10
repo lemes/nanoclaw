@@ -25,7 +25,7 @@ Single Node.js process with skill-based channel system. Channels (WhatsApp, Tele
 
 API keys, secret keys, OAuth tokens, and auth credentials are managed by the OneCLI gateway — which handles secret injection into containers at request time, so no keys or tokens are ever passed to containers directly. Run `onecli --help`.
 
-**Exception:** Google Calendar uses Nango (self-hosted OAuth proxy at `https://viniciuss-macbook-pro.tailc7cd9d.ts.net`) for credential management. The agent calls Google Calendar API through Nango's HTTP proxy — no credentials are mounted in containers.
+**Exception:** Google Calendar uses Nango (self-hosted OAuth proxy at `https://viniciuss-macbook-pro.tailc7cd9d.ts.net`) for OAuth token management. OneCLI injects the Nango secret key automatically — the agent calls Google Calendar API through Nango's HTTP proxy without handling credentials.
 
 ## Skills
 
