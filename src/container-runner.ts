@@ -105,17 +105,16 @@ function buildVolumeMounts(
       containerPath: '/workspace/group',
       readonly: false,
     });
+  }
 
-    // Global memory directory (read-only for non-main)
-    // Only directory mounts are supported, not file mounts
-    const globalDir = path.join(GROUPS_DIR, 'global');
-    if (fs.existsSync(globalDir)) {
-      mounts.push({
-        hostPath: globalDir,
-        containerPath: '/workspace/global',
-        readonly: true,
-      });
-    }
+  // Global memory directory (read-write for main, read-only for others)
+  const globalDir = path.join(GROUPS_DIR, 'global');
+  if (fs.existsSync(globalDir)) {
+    mounts.push({
+      hostPath: globalDir,
+      containerPath: '/workspace/global',
+      readonly: !isMain,
+    });
   }
 
   // Per-group Claude sessions directory (isolated from other groups)

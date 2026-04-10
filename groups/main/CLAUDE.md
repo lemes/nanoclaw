@@ -88,17 +88,18 @@ Anthropic credentials must be either an API key from console.anthropic.com (`ANT
 
 ## Container Mounts
 
-Main has read-only access to the project and read-write access to its group folder:
+Main has read-only access to the project and read-write access to its group folder and global memory:
 
 | Container Path | Host Path | Access |
 |----------------|-----------|--------|
 | `/workspace/project` | Project root | read-only |
 | `/workspace/group` | `groups/main/` | read-write |
+| `/workspace/global` | `groups/global/` | read-write |
 
 Key paths inside the container:
 - `/workspace/project/store/messages.db` - SQLite database
 - `/workspace/project/store/messages.db` (registered_groups table) - Group config
-- `/workspace/project/groups/` - All group folders
+- `/workspace/global/CLAUDE.md` - Global memory (shared across all groups)
 
 ---
 
