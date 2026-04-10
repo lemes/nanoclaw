@@ -18,8 +18,26 @@ Single Node.js process with skill-based channel system. Channels (WhatsApp, Tele
 | `src/container-runner.ts` | Spawns agent containers with mounts |
 | `src/task-scheduler.ts` | Runs scheduled tasks |
 | `src/db.ts` | SQLite operations |
-| `groups/{name}/CLAUDE.md` | Per-group memory (isolated) |
+| `groups/global/CLAUDE.md` | Shared baseline instructions (loaded by all groups) |
+| `groups/{name}/CLAUDE.md` | Per-group instructions (group-specific only) |
 | `container/skills/` | Skills loaded inside agent containers (browser, status, formatting) |
+
+## Group Instruction Layering
+
+Agent instructions are split into two layers — no duplication between them:
+
+- **`groups/global/CLAUDE.md`** — shared baseline loaded by all groups. Identity, capabilities, formatting, location, groceries, cook mode, task scripts.
+- **`groups/{name}/CLAUDE.md`** — only what's unique to that group. Never repeat what's in global.
+
+Capabilities go in global unless they're restricted to specific group types:
+
+| Scope | Examples | Where |
+|-------|----------|-------|
+| All groups | Formatting, location, groceries DB, cook mode | `global/` |
+| Admin only | Group management, Gmail, Kivra sync, scheduling others | `telegram_main/` |
+| Direct channels | Google Calendar (full) | `telegram_main/`, `telegram_yasmin/` |
+| Group channels | Google Calendar (query-only) | `telegram_yanicius/` |
+| Swarm groups | Agent Teams | `telegram_swarm/`, `telegram_yasmin-swarm/` |
 
 ## Secrets / Credentials / Proxy (OneCLI)
 
