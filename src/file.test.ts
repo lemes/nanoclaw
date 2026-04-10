@@ -100,9 +100,7 @@ describe('file processing', () => {
     });
 
     it('returns application/octet-stream for unknown extensions', () => {
-      const messages = [
-        { content: '[File: attachments/file-123-data.xyz]' },
-      ];
+      const messages = [{ content: '[File: attachments/file-123-data.xyz]' }];
       const refs = parseFileReferences(messages as any);
 
       expect(refs).toEqual([
