@@ -21,3 +21,12 @@ https://viniciuss-macbook-pro.tailc7cd9d.ts.net:8443 {
 		respond "NanoClaw Web Publish" 200
 	}
 }
+
+# TREK — self-hosted travel planner (github.com/mauriceboe/TREK)
+# Reverse-proxies to the Docker container at deploy/trek/ (loopback-only bind).
+https://viniciuss-macbook-pro.tailc7cd9d.ts.net:8444 {
+	tls {
+		get_certificate tailscale
+	}
+	reverse_proxy 127.0.0.1:3000
+}

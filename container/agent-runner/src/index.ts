@@ -473,6 +473,7 @@ async function runQuery(
         'NotebookEdit',
         'mcp__nanoclaw__*',
         'mcp__gmail__*',
+        'mcp__trek__*',
       ],
       env: sdkEnv,
       permissionMode: 'bypassPermissions',
@@ -491,6 +492,10 @@ async function runQuery(
         gmail: {
           command: 'npx',
           args: ['-y', '@gongrzhe/server-gmail-autoauth-mcp'],
+        },
+        trek: {
+          type: 'http',
+          url: 'https://viniciuss-macbook-pro.tailc7cd9d.ts.net:8444/mcp',
         },
       },
       hooks: {

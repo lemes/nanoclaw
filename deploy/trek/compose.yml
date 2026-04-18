@@ -1,0 +1,19 @@
+services:
+  trek:
+    image: mauriceboe/trek:latest
+    container_name: trek
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      TRUST_PROXY: "1"
+      FORCE_HTTPS: "true"
+      APP_URL: https://viniciuss-macbook-pro.tailc7cd9d.ts.net:8444
+      ALLOWED_ORIGINS: https://viniciuss-macbook-pro.tailc7cd9d.ts.net:8444
+      TZ: Europe/Stockholm
