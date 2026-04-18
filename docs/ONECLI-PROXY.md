@@ -45,6 +45,27 @@ When multiple secrets share a `hostPattern`:
 
 This means overlapping patterns can conflict. For example, if secret A has `/api/*` and secret B has `*`, and B was created first, B wins for `/api/foo`.
 
+## Agent Secret Modes
+
+Each OneCLI agent has a `secretMode` that controls which secrets apply to its requests:
+
+- **`all`** (default agent) — every secret in the vault is injected when its host/path pattern matches. Nothing extra to configure when adding a new secret.
+- **`selective`** — only secrets explicitly assigned to the agent are injected. Match on host/path still has to succeed, but the agent must also be on the secret's allowlist. A new secret is invisible to every selective agent until you add it.
+
+`onecli agents list` shows the mode per agent. To grant a new secret to a selective agent:
+
+```bash
+# 1. Fetch the agent's current allowlist (returns an ID array under .data)
+onecli agents secrets --id <agent-id>
+
+# 2. Set the new allowlist — full replacement, so include the existing IDs plus the new one
+onecli agents set-secrets --id <agent-id> --secret-ids "<id1>,<id2>,<new-id>"
+```
+
+In NanoClaw, `src/container-runner.ts` picks the agent identifier per container: the main group gets the default agent (`all` mode — automatic) while per-group containers (`telegram-yanicius`, `telegram-yasmin`, `telegram-swarm`, `telegram-yasmin-swarm`) use selective agents. Any new secret you want available in non-main groups must be explicitly added to those agents.
+
+Failure mode when forgotten: the OneCLI gateway log shows `mode="tunnel" injection_count=0` for the container's request (instead of `mode="mitm" injection_count=1`). The request goes through untouched, the upstream rejects for missing auth, and the agent reports the tool as unavailable.
+
 ## Named Host Aliases
 
 When multiple local services share the same host (e.g. `host.docker.internal`), use **named host aliases** to give each service its own hostname and avoid secret conflicts:
