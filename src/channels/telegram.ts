@@ -1,5 +1,5 @@
 import https from 'https';
-import { Api, Bot } from 'grammy';
+import { Api, Bot, InputFile } from 'grammy';
 
 import path from 'path';
 
@@ -75,6 +75,49 @@ export async function initBotPool(tokens: string[]): Promise<void> {
   }
 }
 
+// Telegram limits: 1024 chars for photo captions, 4096 for messages.
+const TELEGRAM_CAPTION_MAX = 1024;
+const TELEGRAM_MESSAGE_MAX = 4096;
+
+async function sendTelegramPhoto(
+  api: { sendPhoto: Api['sendPhoto']; sendMessage: Api['sendMessage'] },
+  chatId: string | number,
+  imagePath: string,
+  caption?: string,
+  options: { message_thread_id?: number } = {},
+): Promise<void> {
+  const photo = new InputFile(imagePath);
+  // If caption fits, attach it; otherwise send photo alone and follow up with the full text.
+  const captionFits = caption && caption.length <= TELEGRAM_CAPTION_MAX;
+  try {
+    await api.sendPhoto(chatId, photo, {
+      ...options,
+      caption: captionFits ? caption : undefined,
+      parse_mode: captionFits ? 'Markdown' : undefined,
+    });
+  } catch (err) {
+    // Retry without Markdown parsing if the caption trips the parser.
+    logger.debug(
+      { err },
+      'sendPhoto with Markdown failed, retrying without parse_mode',
+    );
+    await api.sendPhoto(chatId, new InputFile(imagePath), {
+      ...options,
+      caption: captionFits ? caption : undefined,
+    });
+  }
+  if (caption && !captionFits) {
+    for (let i = 0; i < caption.length; i += TELEGRAM_MESSAGE_MAX) {
+      await sendTelegramMessage(
+        api,
+        chatId,
+        caption.slice(i, i + TELEGRAM_MESSAGE_MAX),
+        options,
+      );
+    }
+  }
+}
+
 /**
  * Send a message via a pool bot assigned to the given sender name.
  * Assigns bots round-robin on first use; subsequent messages from the
@@ -117,15 +160,14 @@ export async function sendPoolMessage(
   const api = poolApis[idx];
   const numericId = chatId.replace(/^tg:/, '');
   try {
-    const MAX_LENGTH = 4096;
-    if (text.length <= MAX_LENGTH) {
+    if (text.length <= TELEGRAM_MESSAGE_MAX) {
       await sendTelegramMessage(api, numericId, text);
     } else {
-      for (let i = 0; i < text.length; i += MAX_LENGTH) {
+      for (let i = 0; i < text.length; i += TELEGRAM_MESSAGE_MAX) {
         await sendTelegramMessage(
           api,
           numericId,
-          text.slice(i, i + MAX_LENGTH),
+          text.slice(i, i + TELEGRAM_MESSAGE_MAX),
         );
       }
     }
@@ -135,6 +177,54 @@ export async function sendPoolMessage(
     );
   } catch (err) {
     logger.error({ chatId, sender, err }, 'Failed to send pool message');
+  }
+}
+
+/**
+ * Send an image via a pool bot assigned to the given sender name.
+ * Uses the same bot assignment map as sendPoolMessage so a subagent's
+ * messages and images come from the same bot identity.
+ */
+export async function sendPoolPhoto(
+  chatId: string,
+  imagePath: string,
+  caption: string | undefined,
+  sender: string,
+  groupFolder: string,
+): Promise<void> {
+  if (poolApis.length === 0) return;
+
+  const key = `${groupFolder}:${sender}`;
+  let idx = senderBotMap.get(key);
+  if (idx === undefined) {
+    idx = nextPoolIndex % poolApis.length;
+    nextPoolIndex++;
+    senderBotMap.set(key, idx);
+    try {
+      await poolApis[idx].setMyName(sender);
+      await new Promise((r) => setTimeout(r, 2000));
+      logger.info(
+        { sender, groupFolder, poolIndex: idx },
+        'Assigned and renamed pool bot',
+      );
+    } catch (err) {
+      logger.warn(
+        { sender, err },
+        'Failed to rename pool bot (sending anyway)',
+      );
+    }
+  }
+
+  const api = poolApis[idx];
+  const numericId = chatId.replace(/^tg:/, '');
+  try {
+    await sendTelegramPhoto(api, numericId, imagePath, caption);
+    logger.info(
+      { chatId, sender, poolIndex: idx, imagePath, hasCaption: !!caption },
+      'Pool photo sent',
+    );
+  } catch (err) {
+    logger.error({ chatId, sender, err }, 'Failed to send pool photo');
   }
 }
 
@@ -527,16 +617,14 @@ export class TelegramChannel implements Channel {
         ? { message_thread_id: parseInt(threadId, 10) }
         : {};
 
-      // Telegram has a 4096 character limit per message — split if needed
-      const MAX_LENGTH = 4096;
-      if (text.length <= MAX_LENGTH) {
+      if (text.length <= TELEGRAM_MESSAGE_MAX) {
         await sendTelegramMessage(this.bot.api, numericId, text, options);
       } else {
-        for (let i = 0; i < text.length; i += MAX_LENGTH) {
+        for (let i = 0; i < text.length; i += TELEGRAM_MESSAGE_MAX) {
           await sendTelegramMessage(
             this.bot.api,
             numericId,
-            text.slice(i, i + MAX_LENGTH),
+            text.slice(i, i + TELEGRAM_MESSAGE_MAX),
             options,
           );
         }
@@ -547,6 +635,38 @@ export class TelegramChannel implements Channel {
       );
     } catch (err) {
       logger.error({ jid, err }, 'Failed to send Telegram message');
+    }
+  }
+
+  async sendImage(
+    jid: string,
+    imagePath: string,
+    caption?: string,
+    threadId?: string,
+  ): Promise<void> {
+    if (!this.bot) {
+      logger.warn('Telegram bot not initialized');
+      return;
+    }
+
+    try {
+      const numericId = jid.replace(/^tg:/, '');
+      const options = threadId
+        ? { message_thread_id: parseInt(threadId, 10) }
+        : {};
+      await sendTelegramPhoto(
+        this.bot.api,
+        numericId,
+        imagePath,
+        caption,
+        options,
+      );
+      logger.info(
+        { jid, imagePath, hasCaption: !!caption, threadId },
+        'Telegram image sent',
+      );
+    } catch (err) {
+      logger.error({ jid, imagePath, err }, 'Failed to send Telegram image');
     }
   }
 

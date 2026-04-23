@@ -12,13 +12,18 @@ import {
 } from './config.js';
 import { AvailableGroup } from './container-runner.js';
 import { createTask, deleteTask, getTaskById, updateTask } from './db.js';
-import { isValidGroupFolder } from './group-folder.js';
-import { sendPoolMessage } from './channels/telegram.js';
+import { isValidGroupFolder, resolveGroupFolderPath } from './group-folder.js';
+import { sendPoolMessage, sendPoolPhoto } from './channels/telegram.js';
 import { logger } from './logger.js';
 import { RegisteredGroup } from './types.js';
 
 export interface IpcDeps {
   sendMessage: (jid: string, text: string) => Promise<void>;
+  sendImage: (
+    jid: string,
+    imagePath: string,
+    caption?: string,
+  ) => Promise<void>;
   registeredGroups: () => Record<string, RegisteredGroup>;
   registerGroup: (jid: string, group: RegisteredGroup) => void;
   syncGroups: (force: boolean) => Promise<void>;
@@ -30,6 +35,26 @@ export interface IpcDeps {
     registeredJids: Set<string>,
   ) => void;
   onTasksChanged: () => void;
+}
+
+/**
+ * Resolve a container-relative image path against the source group folder
+ * and verify it doesn't escape. Returns the absolute host path, or null if
+ * the path is invalid or the file is missing.
+ */
+function resolveImagePath(
+  sourceGroup: string,
+  imagePath: string,
+): string | null {
+  if (!imagePath || path.isAbsolute(imagePath) || imagePath.includes('\0')) {
+    return null;
+  }
+  const groupDir = resolveGroupFolderPath(sourceGroup);
+  const resolved = path.resolve(groupDir, imagePath);
+  const rel = path.relative(groupDir, resolved);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) return null;
+  if (!fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) return null;
+  return resolved;
 }
 
 let ipcWatcherRunning = false;
@@ -110,6 +135,54 @@ export function startIpcWatcher(deps: IpcDeps): void {
                   logger.warn(
                     { chatJid: data.chatJid, sourceGroup },
                     'Unauthorized IPC message attempt blocked',
+                  );
+                }
+              } else if (
+                data.type === 'image' &&
+                data.chatJid &&
+                data.imagePath
+              ) {
+                const targetGroup = registeredGroups[data.chatJid];
+                if (
+                  isMain ||
+                  (targetGroup && targetGroup.folder === sourceGroup)
+                ) {
+                  const hostPath = resolveImagePath(
+                    sourceGroup,
+                    data.imagePath,
+                  );
+                  if (!hostPath) {
+                    logger.warn(
+                      { imagePath: data.imagePath, sourceGroup },
+                      'IPC image path invalid or missing',
+                    );
+                  } else if (
+                    data.sender &&
+                    data.chatJid.startsWith('tg:') &&
+                    TELEGRAM_BOT_POOL.length > 0
+                  ) {
+                    await sendPoolPhoto(
+                      data.chatJid,
+                      hostPath,
+                      data.caption,
+                      data.sender,
+                      sourceGroup,
+                    );
+                  } else {
+                    await deps.sendImage(data.chatJid, hostPath, data.caption);
+                  }
+                  logger.info(
+                    {
+                      chatJid: data.chatJid,
+                      sourceGroup,
+                      imagePath: data.imagePath,
+                    },
+                    'IPC image sent',
+                  );
+                } else {
+                  logger.warn(
+                    { chatJid: data.chatJid, sourceGroup },
+                    'Unauthorized IPC image attempt blocked',
                   );
                 }
               }

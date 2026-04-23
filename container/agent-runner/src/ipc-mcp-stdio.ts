@@ -14,6 +14,7 @@ import { CronExpressionParser } from 'cron-parser';
 const IPC_DIR = '/workspace/ipc';
 const MESSAGES_DIR = path.join(IPC_DIR, 'messages');
 const TASKS_DIR = path.join(IPC_DIR, 'tasks');
+const GROUP_DIR = '/workspace/group';
 
 // Context from environment variables (set by the agent runner)
 const chatJid = process.env.NANOCLAW_CHAT_JID!;
@@ -59,6 +60,47 @@ server.tool(
     writeIpcFile(MESSAGES_DIR, data);
 
     return { content: [{ type: 'text' as const, text: 'Message sent.' }] };
+  },
+);
+
+server.tool(
+  'send_image',
+  `Send an image file to the current chat. The file must live under your group folder (/workspace/group); pass its path relative to that folder (e.g. "attachments/chart.png"). Supports common image formats (JPEG, PNG, WebP).
+
+Optional caption is sent along with the image. On Telegram captions are limited to 1024 characters — anything longer is sent as a follow-up text message.`,
+  {
+    path: z.string().describe('Path to the image file, relative to /workspace/group (e.g. "attachments/img.jpg")'),
+    caption: z.string().optional().describe('Optional caption/text sent with the image.'),
+    sender: z.string().optional().describe('Your role/identity name (e.g. "Researcher"). When set, the image appears from a dedicated bot in Telegram.'),
+  },
+  async (args) => {
+    if (path.isAbsolute(args.path) || args.path.includes('..')) {
+      return {
+        content: [{ type: 'text' as const, text: `Invalid path "${args.path}": must be relative to the group folder and cannot contain "..".` }],
+        isError: true,
+      };
+    }
+    const absPath = path.join(GROUP_DIR, args.path);
+    if (!fs.existsSync(absPath) || !fs.statSync(absPath).isFile()) {
+      return {
+        content: [{ type: 'text' as const, text: `Image file not found: ${args.path}. Write the file under /workspace/group first.` }],
+        isError: true,
+      };
+    }
+
+    const data: Record<string, string | undefined> = {
+      type: 'image',
+      chatJid,
+      imagePath: args.path,
+      caption: args.caption || undefined,
+      sender: args.sender || undefined,
+      groupFolder,
+      timestamp: new Date().toISOString(),
+    };
+
+    writeIpcFile(MESSAGES_DIR, data);
+
+    return { content: [{ type: 'text' as const, text: 'Image sent.' }] };
   },
 );
 
