@@ -178,6 +178,18 @@ function buildVolumeMounts(
     });
   }
 
+  // Android ADB keypair (for shield-adb skill). Read-only — the Shield already
+  // trusts this key on the host, so the container reuses the same identity and
+  // no authorization dialog appears on the TV.
+  const androidDir = path.join(homeDir, '.android');
+  if (fs.existsSync(androidDir)) {
+    mounts.push({
+      hostPath: androidDir,
+      containerPath: '/home/node/.android',
+      readonly: true,
+    });
+  }
+
   // Per-group IPC namespace: each group gets its own IPC directory
   // This prevents cross-group privilege escalation via IPC
   const groupIpcDir = resolveGroupIpcPath(group.folder);
