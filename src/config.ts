@@ -11,10 +11,15 @@ const envConfig = readEnvFile([
   'ONECLI_URL',
   'TZ',
   'TELEGRAM_BOT_POOL',
+  'SHIELD_IP',
 ]);
 
 export const ASSISTANT_NAME =
   process.env.ASSISTANT_NAME || envConfig.ASSISTANT_NAME || 'Andy';
+// Android device address (host:port) for the shield-adb skill. Optional —
+// unset disables the skill at the usage site rather than at mount time.
+export const SHIELD_IP =
+  process.env.SHIELD_IP || envConfig.SHIELD_IP || undefined;
 export const ASSISTANT_HAS_OWN_NUMBER =
   (process.env.ASSISTANT_HAS_OWN_NUMBER ||
     envConfig.ASSISTANT_HAS_OWN_NUMBER) === 'true';
