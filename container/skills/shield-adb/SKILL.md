@@ -97,9 +97,18 @@ Use `-d` (dump and exit) not a live tail — a live tail will block the agent.
 adb -s "$SHIELD_IP" shell am start -a android.intent.action.VIEW -d "http://<jellyfin-host>:8096"
 ```
 
+### Find the remote (make it beep)
+
+```bash
+adb -s "$SHIELD_IP" shell monkey -p com.nvidia.remotelocator 1
+```
+
+Launches NVIDIA's built-in Remote Locator app, which triggers the remote to beep via Bluetooth.
+
 ## Constraints
 
 - No root — system apps can only be removed per-user with `pm uninstall --user 0 <pkg>` (reversible with `cmd package install-existing <pkg>`).
 - If `adb connect` returns **"failed to authenticate"**, the RSA key mount isn't in place; report back so the user can debug the host setup (`~/.android` needs to exist and be mounted into the container).
-- If `adb connect` returns **"connection refused"**, Network debugging is off on the Shield.
+- If `adb connect` returns **"connection refused"**, Network debugging is off on the Shield — toggle it off and back on to restart the ADB daemon.
+- If the container can reach the router (192.168.0.1) but not the Shield, **Tailscale may be blocking LAN access**. Fix: Tailscale → enable "Allow local network access".
 - If `$SHIELD_IP` is unset, tell the user to add `SHIELD_IP=<host>:<port>` to the NanoClaw `.env` and restart.
