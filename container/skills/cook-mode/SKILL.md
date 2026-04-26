@@ -54,22 +54,35 @@ Set `"last": true` on the final step.
 
 ## Fetching a recipe from Pick Up Limes
 
-The session is saved at `/workspace/global/pickuplimes-session.json` (refresh token and API key persist).
+A saved browser session is at `/workspace/global/pickuplimes-browser-state.json`. Load it to access premium recipes.
 
-To refresh the session token and fetch a recipe:
-
-```python
-import json, urllib.request, urllib.parse, time
-
-session = json.load(open("/workspace/global/pickuplimes-session.json"))
-REFRESH_TOKEN = session["stsTokenManager"]["refreshToken"]
-API_KEY = session["apiKey"]
-
-data = urllib.parse.urlencode({'grant_type': 'refresh_token', 'refresh_token': REFRESH_TOKEN}).encode()
-req = urllib.request.Request(f"https://securetoken.googleapis.com/v1/token?key={API_KEY}", data=data)
-with urllib.request.urlopen(req) as r:
-    tokens = json.loads(r.read())
-id_token = tokens['id_token']
+```bash
+agent-browser state load /workspace/global/pickuplimes-browser-state.json
+agent-browser open <recipe-url>
+agent-browser wait --load networkidle
+agent-browser wait 3000
 ```
 
-Then inject the session into agent-browser and navigate to the recipe URL. The recipe page exposes ingredients and steps in the DOM — extract with `agent-browser eval`.
+Then extract ingredients and steps:
+
+```bash
+agent-browser eval "
+const ingredients = [...document.querySelectorAll('.ingredient-container')].map(e => e.innerText?.trim()).filter(Boolean);
+const steps = [...document.querySelectorAll('.direction')].map(e => e.innerText?.trim()).filter(Boolean);
+const title = document.querySelector('h1')?.innerText?.trim();
+const time = document.querySelector('[class*=time]')?.innerText?.trim();
+JSON.stringify({title, time, ingredients, steps});
+"
+```
+
+If the recipe is still gated after loading state (session expired):
+1. Open the recipe URL in agent-browser
+2. Click "Try 7 days free" to open the auth modal
+3. Click "Continue with Email"
+4. A JS prompt will appear — ask Vin for the Pick Up Limes email and enter it
+5. Vin will receive a magic link — ask him to paste it
+6. Navigate to the magic link URL
+7. A second JS prompt asks to confirm email — enter the same address again
+8. Save new state: `agent-browser state save /workspace/global/pickuplimes-browser-state.json`
+
+After successfully fetching a recipe, always re-save the browser state to keep the session fresh.
