@@ -16,12 +16,30 @@ import { getContainerConfig } from './db/container-configs.js';
 import { getAgentGroup } from './db/agent-groups.js';
 import type { AgentGroup, ContainerConfigRow } from './types.js';
 
-export interface McpServerConfig {
-  command: string;
-  args?: string[];
-  env?: Record<string, string>;
-  instructions?: string;
-}
+/**
+ * MCP server config materialized into `container.json`. A discriminated union:
+ *   - stdio (default): spawn `command` with `args`/`env` (the common case).
+ *   - http: connect to a remote MCP endpoint at `url`. The container's MCP
+ *     client honors `HTTPS_PROXY`, so http requests route through the OneCLI
+ *     gateway for credential injection; `headers` are sent verbatim (e.g. an
+ *     `X-Forwarded-Proto` header for a backend that forces HTTPS).
+ * Mirrors the SDK's `McpStdioServerConfig | McpHttpServerConfig` shape so the
+ * map passes straight through to the Claude Agent SDK with no translation.
+ */
+export type McpServerConfig =
+  | {
+      type?: 'stdio';
+      command: string;
+      args?: string[];
+      env?: Record<string, string>;
+      instructions?: string;
+    }
+  | {
+      type: 'http';
+      url: string;
+      headers?: Record<string, string>;
+      instructions?: string;
+    };
 
 export interface AdditionalMountConfig {
   hostPath: string;

@@ -19,6 +19,7 @@ import {
   type Message as ChatMessage,
 } from 'chat';
 import { log } from '../log.js';
+import { transcribeAudio, transcriptionAvailable, extFromMime } from '../transcription.js';
 import { SqliteStateAdapter } from '../state-sqlite.js';
 import { registerWebhookAdapter } from '../webhook-server.js';
 import { getAskQuestionRender } from '../db/sessions.js';
@@ -166,6 +167,7 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
     // Download attachment data before serialization loses fetchData()
     if (message.attachments && message.attachments.length > 0) {
       const enriched = [];
+      const transcripts: string[] = [];
       for (const att of message.attachments) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const entry: Record<string, any> = {
@@ -179,6 +181,18 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
         if (att.fetchData) {
           try {
             const buffer = await att.fetchData();
+            // Voice notes / audio arrive as opaque attachments the agent can't
+            // read. Transcribe locally (whisper.cpp) on the way in and surface
+            // the text instead. Best-effort and no-op unless a whisper model is
+            // configured on the host; on success we drop the heavy base64 blob
+            // and replace it with the transcript in the message body below.
+            if (att.type === 'audio' && transcriptionAvailable()) {
+              const transcript = await transcribeAudio(buffer, extFromMime(att.mimeType));
+              if (transcript) {
+                transcripts.push(transcript);
+                continue;
+              }
+            }
             entry.data = buffer.toString('base64');
           } catch (err) {
             log.warn('Failed to download attachment', { type: att.type, err });
@@ -187,6 +201,12 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
         enriched.push(entry);
       }
       serialized.attachments = enriched;
+
+      if (transcripts.length > 0) {
+        const voiceText = transcripts.map((t) => `[Voice: ${t}]`).join('\n');
+        const existing = typeof serialized.text === 'string' ? serialized.text.trim() : '';
+        serialized.text = existing ? `${existing}\n${voiceText}` : voiceText;
+      }
     }
 
     // Extract reply context via platform-specific hook

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Periodic refresh of the qmd conversation index.
+
+  Runs deploy/qmd/refresh.sh every hour: discovers each group's conversations/
+  dir, (re-)indexes new/changed transcripts, and regenerates embeddings.
+  Without this, search silently goes stale as new sessions are archived.
+
+  Installed to ~/Library/LaunchAgents/com.nanoclaw.qmd-refresh.plist by install.sh.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.nanoclaw.qmd-refresh</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/vin/code/nanoclaw/deploy/qmd/refresh.sh</string>
+    </array>
+
+    <!-- Every hour. RunAtLoad does an initial pass on (re)load. -->
+    <key>StartInterval</key>
+    <integer>3600</integer>
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/vin/code/nanoclaw/logs/qmd-refresh.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/vin/code/nanoclaw/logs/qmd-refresh.error.log</string>
+</dict>
+</plist>

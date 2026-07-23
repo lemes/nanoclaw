@@ -18,6 +18,7 @@ import {
   CONTAINER_MEMORY_LIMIT,
   DATA_DIR,
   GROUPS_DIR,
+  LOCATIONS_DIR,
   ONECLI_API_KEY,
   ONECLI_URL,
   TIMEZONE,
@@ -321,6 +322,13 @@ export function buildMounts(
     mounts.push({ hostPath: fragmentsDir, containerPath: '/workspace/agent/.claude-fragments', readonly: true });
   }
 
+  // Live OwnTracks locations (sidecar-written) — always read-only. Lives under
+  // ~/.local/share/nanoclaw so it survives the groups/global cutover wipe.
+  // The `location-awareness` container skill teaches the agent to read here.
+  if (fs.existsSync(LOCATIONS_DIR)) {
+    mounts.push({ hostPath: LOCATIONS_DIR, containerPath: '/workspace/locations', readonly: true });
+  }
+
   // Shared CLAUDE.md — read-only, imported by the composed entry point via
   // the `.claude-shared.md` symlink inside the group dir.
   const sharedClaudeMd = path.join(process.cwd(), 'container', 'CLAUDE.md');
@@ -436,7 +444,7 @@ async function buildContainerArgs(
   containerName: string,
   agentGroup: AgentGroup,
   containerConfig: import('./container-config.js').ContainerConfig,
-  _provider: string,
+  provider: string,
   providerContribution: ProviderContainerContribution,
   agentIdentifier?: string,
 ): Promise<string[]> {
@@ -511,7 +519,17 @@ async function buildContainerArgs(
   const imageTag = containerConfig.imageTag || CONTAINER_IMAGE;
   args.push(imageTag);
 
-  args.push('-c', 'exec bun run /app/src/index.ts');
+  // mnemon — persistent memory. Its Claude Code hooks only fire under the
+  // claude provider; other providers spawn their own process and never invoke
+  // the `claude` CLI, so setup would be inert. `;` (not `&&`) so a setup failure
+  // never blocks the agent from booting. This is the load-bearing wiring: the
+  // image's entrypoint.sh is bypassed by the --entrypoint override above, so
+  // mnemon setup must run here, in the actual spawn command.
+  const bootCmd =
+    provider === 'claude'
+      ? 'mnemon setup --target claude-code --yes --global >/dev/stderr 2>&1; exec bun run /app/src/index.ts'
+      : 'exec bun run /app/src/index.ts';
+  args.push('-c', bootCmd);
 
   return args;
 }

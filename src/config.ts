@@ -18,6 +18,8 @@ const envConfig = readEnvFile([
   'NANOCLAW_EGRESS_LOCKDOWN',
   'NANOCLAW_EGRESS_NETWORK',
   'ONECLI_GATEWAY_CONTAINER',
+  'CONTAINER_IMAGE',
+  'CONTAINER_IMAGE_BASE',
 ]);
 
 /**
@@ -51,6 +53,14 @@ const PROJECT_ROOT = process.cwd();
 const HOME_DIR = process.env.HOME || os.homedir();
 
 // Mount security: allowlist stored OUTSIDE project root, never mounted into containers
+// Durable, project-root-independent state under XDG data home. Survives the
+// `groups/global/` cutover wipe (claude-md-compose.ts) and group reshuffles.
+// Mirrors the web-publish convention (~/.local/share/nanoclaw/apps in Caddyfile).
+export const LOCAL_SHARE_DIR = path.join(HOME_DIR, '.local', 'share', 'nanoclaw');
+// OwnTracks live-location store written by the sidecar, mounted RO into
+// containers at /workspace/locations. Lives OUTSIDE groups/ on purpose.
+export const LOCATIONS_DIR = path.join(LOCAL_SHARE_DIR, 'locations');
+
 export const MOUNT_ALLOWLIST_PATH = path.join(HOME_DIR, '.config', 'nanoclaw', 'mount-allowlist.json');
 export const SENDER_ALLOWLIST_PATH = path.join(HOME_DIR, '.config', 'nanoclaw', 'sender-allowlist.json');
 export const STORE_DIR = path.resolve(PROJECT_ROOT, 'store');
@@ -65,8 +75,10 @@ export const TEMPLATES_DIR = process.env.NANOCLAW_TEMPLATES_DIR
 
 // Per-checkout image tag so two installs on the same host don't share
 // `nanoclaw-agent:latest` and clobber each other on rebuild.
-export const CONTAINER_IMAGE_BASE = process.env.CONTAINER_IMAGE_BASE || getContainerImageBase(PROJECT_ROOT);
-export const CONTAINER_IMAGE = process.env.CONTAINER_IMAGE || getDefaultContainerImage(PROJECT_ROOT);
+export const CONTAINER_IMAGE_BASE =
+  process.env.CONTAINER_IMAGE_BASE || envConfig.CONTAINER_IMAGE_BASE || getContainerImageBase(PROJECT_ROOT);
+export const CONTAINER_IMAGE =
+  process.env.CONTAINER_IMAGE || envConfig.CONTAINER_IMAGE || getDefaultContainerImage(PROJECT_ROOT);
 // Install slug — stamped onto every spawned container via --label so
 // cleanupOrphans only reaps containers from this install, not peers.
 export const INSTALL_SLUG = getInstallSlug(PROJECT_ROOT);

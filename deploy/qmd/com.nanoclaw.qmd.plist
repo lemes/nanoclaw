@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  qmd conversation-search supervisor.
+
+  Runs deploy/qmd/serve.sh, which launches ONE isolated qmd MCP server per group
+  (own config + DB, shared models) on private loopback ports, and generates a
+  token-routed caddy site so the single container-facing port (:8182) dispatches
+  each request to the caller's own instance only. See deploy/qmd/README.md.
+
+  Installed to ~/Library/LaunchAgents/com.nanoclaw.qmd.plist by deploy/qmd/install.sh.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.nanoclaw.qmd</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/vin/code/nanoclaw/deploy/qmd/serve.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/vin/.nanoclaw-qmd</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/vin/code/nanoclaw/logs/qmd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/vin/code/nanoclaw/logs/qmd.error.log</string>
+</dict>
+</plist>
