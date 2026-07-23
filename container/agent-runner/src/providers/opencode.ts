@@ -1,6 +1,15 @@
 import { spawn, type ChildProcess } from 'child_process';
 
-import { createOpencodeClient, type OpencodeClient } from '@opencode-ai/sdk';
+// Type-only import: erased at runtime. The value import is deferred to the
+// dynamic `await import(...)` in ensureSharedRuntime below, so that merely
+// loading the provider barrel never resolves '@opencode-ai/sdk'.
+//
+// The agent-runner source is a SHARED read-only mount from the host tree, but
+// each group may pin its own baked image (container_configs.image_tag). A group
+// whose image predates this dependency — including claude-provider groups that
+// never use OpenCode — would crash at boot with "Cannot find module
+// '@opencode-ai/sdk'" if this were a top-level value import.
+import type { OpencodeClient } from '@opencode-ai/sdk';
 
 import type { MemorySessionHookRegistration } from '../memory/session-hook.js';
 import { registerProvider } from './provider-registry.js';
@@ -169,6 +178,7 @@ async function ensureSharedRuntime(options: ProviderOptions): Promise<SharedRunt
     }
     const config = buildOpenCodeConfig(options);
     const { url, proc } = await spawnOpencodeServer(config);
+    const { createOpencodeClient } = await import('@opencode-ai/sdk');
     const client = createOpencodeClient({ baseUrl: url });
     const sub = await client.event.subscribe();
     const stream = sub.stream as AsyncGenerator<{ type: string; properties: Record<string, unknown> }, void, void>;

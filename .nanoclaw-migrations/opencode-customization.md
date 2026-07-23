@@ -75,6 +75,39 @@ registerMemorySessionHook(_hook: MemorySessionHookRegistration): void {}
 
 Re-running `/add-opencode` overwrites this file wholesale and reintroduces the error, so reapply this each time until the `providers` branch catches up.
 
+## Additional patch: lazy-load `@opencode-ai/sdk` (required — crashes claude groups otherwise)
+
+**Discovered 2026-07-23, after the upgrade, by a live crash of the `telegram_main` group.**
+
+The agent-runner source is a **shared read-only mount** from the host tree (`src/container-runner.ts` mounts `container/agent-runner/src` at `/app/src`), but each group may pin its **own baked image** via `container_configs.image_tag`. Those two facts combine badly: the provider barrel's `import './opencode.js'` reaches *every* group, and the stock `opencode.ts` top-level-imports `@opencode-ai/sdk`. Any group whose pinned image predates that dependency dies at boot with:
+
+```
+error: Cannot find module '@opencode-ai/sdk' from '/app/src/providers/opencode.ts'
+```
+
+This kills **claude-provider groups that never touch OpenCode** — `telegram_main` (image `…:ag-1781443191239-otytf8`, built Jun 20) crashed on the first message after the upgrade.
+
+Fix — make the type import type-only and defer the value import into `ensureSharedRuntime`:
+
+```typescript
+// top of file — type-only, erased at runtime
+import type { OpencodeClient } from '@opencode-ai/sdk';
+
+// inside ensureSharedRuntime, just before the client is created:
+const { createOpencodeClient } = await import('@opencode-ai/sdk');
+const client = createOpencodeClient({ baseUrl: url });
+```
+
+Prefer this to rebuilding every per-group image: those images carry self-mod `install_packages` customizations, and lazy-loading fixes current *and* future stale-image groups with a two-line diff. Verify against a stale image directly:
+
+```bash
+docker run --rm -v "$PWD/container/agent-runner/src:/app/src:ro" \
+  --entrypoint bun <stale-per-group-image> \
+  -e "await import('/app/src/providers/index.js'); console.log('BARREL OK')"
+```
+
+Re-running `/add-opencode` overwrites this too. Reapply both patches together.
+
 ## Stale steps in `add-opencode` SKILL.md — skip them
 
 Upstream moved global CLI installs out of the Dockerfile and into the `container/cli-tools.json` manifest (installed by `container/install-cli-tools.sh`). Three of the skill's steps are now obsolete against upstream trunk:
