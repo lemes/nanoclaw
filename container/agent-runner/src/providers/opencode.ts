@@ -93,7 +93,7 @@ function wrapPromptWithContext(text: string, systemInstructions?: string): strin
   return out;
 }
 
-function buildOpenCodeConfig(options: ProviderOptions): Record<string, unknown> {
+export function buildOpenCodeConfig(options: ProviderOptions): Record<string, unknown> {
   const provider = process.env.OPENCODE_PROVIDER || 'anthropic';
   const model = process.env.OPENCODE_MODEL;
   const smallModel = process.env.OPENCODE_SMALL_MODEL;
@@ -127,10 +127,16 @@ function buildOpenCodeConfig(options: ProviderOptions): Record<string, unknown> 
   // native instructions pipeline (session/instruction.ts). Absolute paths with
   // globs are supported. Files are read raw — `@./...` includes are NOT expanded
   // by OpenCode, so point at the concrete files, not at composed CLAUDE.md.
+  // The memory files are the same two the Claude session hook renders
+  // (memory/context.ts) — OpenCode has no session-start hook, so they ride the
+  // instructions pipeline instead. Read at server spawn: a container restart is
+  // needed for edits made mid-session to show up in the prompt.
   const instructions = [
     '/app/CLAUDE.md',
     '/workspace/agent/.claude-fragments/*.md',
     '/workspace/agent/CLAUDE.local.md',
+    '/workspace/agent/memory/index.md',
+    '/workspace/agent/memory/system/definition.md',
   ];
 
   return {
@@ -234,8 +240,8 @@ export class OpenCodeProvider implements AgentProvider {
    * No-op: the shared-memory session hook is a Claude Code mechanism (a hook
    * command registered into ~/.claude settings). OpenCode runs its own harness
    * and has no equivalent session-start hook, so there is nothing to register —
-   * same stance as the mock provider. Memory still reaches an OpenCode group
-   * through the composed CLAUDE.md / instructions surface, not through this hook.
+   * same stance as the mock provider. Memory reaches an OpenCode group through
+   * the instructions list in buildOpenCodeConfig, not through this hook.
    *
    * Fork-local: the `providers` branch predates upstream's provider-agnostic
    * memory rewrite, which added this method to the AgentProvider interface.
