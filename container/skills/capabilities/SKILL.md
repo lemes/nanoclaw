@@ -54,7 +54,9 @@ which agent-browser 2>/dev/null && echo "agent-browser: available" || echo "agen
 ### 5. Group info
 
 ```bash
-ls /workspace/agent/CLAUDE.local.md 2>/dev/null && echo "Group memory: yes" || echo "Group memory: no"
+# Shared memory tree (OKF bundle) + standing instructions. Both are optional.
+ls /workspace/agent/memory/ 2>/dev/null | head -5 && echo "Group memory: yes" || echo "Group memory: none yet"
+ls /workspace/agent/instructions.prepend.md 2>/dev/null >/dev/null && echo "Standing instructions: yes" || echo "Standing instructions: no"
 # Any additional host directories mounted for this group appear under /workspace/ (e.g. /workspace/gcloud)
 ls -d /workspace/*/ 2>/dev/null | grep -vE '/agent/$' || true
 ```
@@ -81,7 +83,8 @@ Present the report as a clean, readable message. Example:
 • agent-browser: ✓
 
 *Workspace:*
-• Group memory (/workspace/agent): yes/no
+• Group memory (/workspace/agent/memory): yes/none yet
+• Standing instructions: yes/no
 • Additional mounts: (list any /workspace/<name> dirs)
 ```
 

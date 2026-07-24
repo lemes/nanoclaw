@@ -18,7 +18,7 @@ Migrated from the v1 install, not from any upstream `/add-*` skill. Each is a se
 | qmd | Semantic/keyword conversation search via MCP | `deploy/qmd/install.sh` run (below) |
 | shield-adb | Control NVIDIA Shield via ADB | `$SHIELD_IP` env var + `/workspace/extra/android/adbkey` mount + adb in image |
 | status | Read-only health check | none |
-| task-scripts | Scheduling pre-check script guidance | none |
+| ~~task-scripts~~ | **Deleted 2026-07-24 — do not re-copy.** `ncl tasks create --help` now carries the full `--script` contract inline (timeout, output cap, JSON shape, DO/DON'T, backoff, examples), delivered at the point of use. The skill was strictly redundant context. | n/a |
 | tvoverlay | On-screen Shield notifications | `$SHIELD_IP` env var |
 | web-publish | Static web pages via Caddy | writes to `/workspace/extra/apps/` (mounted RW) |
 | wiki | Persistent structured knowledge base | none (owned by `add-karpathy-llm-wiki`, may already be reproduced by re-running that skill — diff against it first) |
