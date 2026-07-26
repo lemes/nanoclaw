@@ -53,6 +53,28 @@ describe('mcpServersToOpenCodeConfig', () => {
     });
   });
 
+  it('maps http/sse entries to remote instead of spreading missing args', () => {
+    const mcp = mcpServersToOpenCodeConfig({
+      qmd: {
+        type: 'http',
+        url: 'http://host.docker.internal:8182/mcp',
+        headers: { Authorization: 'Bearer tok' },
+      },
+      bare: { type: 'sse', url: 'http://example/mcp' },
+    });
+    expect(mcp.qmd).toEqual({
+      type: 'remote',
+      url: 'http://host.docker.internal:8182/mcp',
+      headers: { Authorization: 'Bearer tok' },
+      enabled: true,
+    });
+    expect(mcp.bare).toEqual({
+      type: 'remote',
+      url: 'http://example/mcp',
+      enabled: true,
+    });
+  });
+
   it('returns empty record for undefined', () => {
     expect(mcpServersToOpenCodeConfig(undefined)).toEqual({});
   });
