@@ -21,7 +21,9 @@ gen_caddy() {
     port="$(get_port "$group")"
     token="$(get_token "$group")"
     printf '\t@g_%s header Authorization "Bearer %s"\n' "$group" "$token"
-    printf '\thandle @g_%s {\n\t\treverse_proxy [::1]:%s\n\t}\n' "$group" "$port"
+    # qmd listens on "localhost", which macOS resolves to ::1 or 127.0.0.1
+    # per-process — a hardcoded family here 502s whenever it picks the other one.
+    printf '\thandle @g_%s {\n\t\treverse_proxy localhost:%s\n\t}\n' "$group" "$port"
   done
   printf '\trespond "qmd: unauthorized" 403\n'
   printf '}\n'
@@ -43,7 +45,7 @@ start_instance() {
   XDG_CONFIG_HOME="$(cfg_dir "$group")" INDEX_PATH="$(index_path "$group")" \
     "$QMD" mcp --http --port "$port" >>"$REPO/logs/qmd.log" 2>&1 &
   echo $! > "$(inst_path "$group")/pid"
-  echo "[qmd-serve] started $group on [::1]:$port (pid $!)"
+  echo "[qmd-serve] started $group on localhost:$port (pid $!)"
 }
 
 instance_alive() {
