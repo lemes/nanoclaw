@@ -51,7 +51,10 @@ done
 echo "==> 5/5 wire qmd MCP into each group (own token)"
 NCL="$REPO/node_modules/.bin/ncl"; [ -x "$NCL" ] || NCL="ncl"
 for group in $(group_list); do
-  gid="$("$NCL" groups list 2>/dev/null | grep -E "[[:space:]]$group[[:space:]]" | grep -oE 'ag-[0-9]+-[a-z0-9]+' | head -1)"
+  # Match the folder column and take the id column. Pattern-matching the id
+  # instead only ever matched the legacy ag-<ts>-<slug> shape and silently
+  # skipped groups created with a uuid.
+  gid="$("$NCL" groups list 2>/dev/null | awk -v f="$group" '$3 == f { print $1 }' | head -1)"
   [ -n "$gid" ] || { echo "    !! no agent group id for folder $group — wire manually"; continue; }
   token="$(get_token "$group")"
   "$NCL" groups config add-mcp-server --id "$gid" --name qmd \
