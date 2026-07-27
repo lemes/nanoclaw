@@ -3,6 +3,8 @@ onlyBuiltDependencies:
   - esbuild
   - protobufjs
   - sharp
+patchedDependencies:
+  '@beeper/chat-adapter-matrix@0.2.0': patches/@beeper__chat-adapter-matrix@0.2.0.patch
 
 pnpm:
   minimumReleaseAge: 4320
