@@ -15,8 +15,8 @@ agent container ──http+Bearer<group-token>──▶ host.docker.internal:818
                                                      │  caddy (generated qmd.caddy)
                                   token match ───────┤  routes by token, else 403
                                                      ▼
-                       group A ▶ [::1]:8190  qmd mcp --http   (cfg+DB: inst/A/)
-                       group B ▶ [::1]:8191  qmd mcp --http   (cfg+DB: inst/B/)
+                       group A ▶ localhost:8190  qmd mcp --http   (cfg+DB: inst/A/)
+                       group B ▶ localhost:8191  qmd mcp --http   (cfg+DB: inst/B/)
                           ...      supervised by com.nanoclaw.qmd (serve.sh)
                                                      │
                        shared on host:               ▼
@@ -32,8 +32,10 @@ group's collection and a DB holding only its data — it has no way to read anot
 group's history. The token both routes the request and gates access (closing the
 LAN/tailnet exposure of an unauthenticated port).
 
-Why the caddy hop at all: qmd's HTTP server hardcodes `listen(port,"localhost")` (IPv6
-loopback), unreachable from containers; caddy bridges the container-facing `:8182`.
+Why the caddy hop at all: qmd's HTTP server hardcodes `listen(port,"localhost")`, which is
+loopback-only and unreachable from containers; caddy bridges the container-facing `:8182`.
+The upstream address stays spelled `localhost` on purpose — macOS resolves it per-process
+to `::1` or `127.0.0.1`, so pinning either family 502s whenever an instance picks the other.
 
 The qmd CLI lives in `~/.nanoclaw-qmd` (standalone npm install, **not** the pnpm
 workspace) so its native build scripts (`better-sqlite3`, `node-llama-cpp`) don't
@@ -46,6 +48,7 @@ interact with the repo's supply-chain policy.
 | `lib.sh`                          | shared paths, stable port map, per-group token, isolated `qmd_for` |
 | `serve.sh`                        | supervisor: one qmd instance/group + generate & reload token-routed caddy |
 | `refresh.sh`                      | (re)build each group's isolated index + embeddings |
+| `export-opencode.mjs`             | render OpenCode sessions to `conversations/` markdown (see below) |
 | `install.sh`                      | idempotent deploy: install, index, caddy import, load services, wire MCP |
 | `com.nanoclaw.qmd.plist`          | launchd: runs `serve.sh` (KeepAlive) |
 | `com.nanoclaw.qmd-refresh.plist`  | launchd: runs `refresh.sh` hourly |
@@ -64,6 +67,28 @@ history (telegram_main's 20 files took ~6.5 min). Subsequent refreshes are incre
 New groups are picked up automatically: refresh.sh indexes any new `conversations/`
 dir and serve.sh starts its instance + adds its caddy route on the next loop (wire its
 MCP with `install.sh` re-run or `ncl groups config add-mcp-server`).
+
+## OpenCode groups
+
+Everything here keys on `groups/<folder>/conversations/`. Only the **claude** provider
+writes that dir (it archives transcripts from a PreCompact hook); OpenCode has no such hook,
+so an OpenCode group would never get an instance, a port or a token — it'd be invisible to
+the whole stack.
+
+`export-opencode.mjs` closes that gap from the host. OpenCode does persist every session, in
+its own `opencode.db` under the per-session XDG mount, so the exporter reads those databases
+read-only and renders the same markdown the claude provider would have written. `refresh.sh`
+runs it before `group_list()`, since that call is what decides which groups exist.
+
+It writes one file per top-level session, named `<date>-<title-slug>-<session-suffix>.md`,
+and skips writes when content is unchanged — rewriting a transcript would bump its mtime and
+make the hourly pass re-embed the whole corpus for nothing. Subagent sessions and tool output
+are left out; only text turns are exported, matching the claude side.
+
+```bash
+node deploy/qmd/export-opencode.mjs               # run by hand
+node deploy/qmd/export-opencode.mjs --self-check  # assert the transcript parsing
+```
 
 ## Resource note
 

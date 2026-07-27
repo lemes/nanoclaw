@@ -12,6 +12,13 @@ source "$(dirname "$0")/lib.sh"
 
 [ -x "$QMD" ] || { echo "qmd not installed at $QMD — run install.sh first" >&2; exit 1; }
 
+# OpenCode has no transcript-archiving hook, so render its sessions to markdown
+# before group_list() runs — that call is what decides which groups exist, and a
+# group with no conversations/ dir is invisible to the whole stack.
+# Never fatal (set -e): a failed export must not stop the groups that do work.
+node --no-warnings="ExperimentalWarning" "$(dirname "$0")/export-opencode.mjs" \
+  || echo "[qmd-refresh] WARN opencode export failed"
+
 for group in $(group_list); do
   conv="$GROUPS_DIR/$group/conversations"
   mkdir -p "$(cfg_dir "$group")"
